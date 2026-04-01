@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, time, datetime
 
 # List and Optional are type hints:
 # - List[Booking] means "a list of Booking objects"
@@ -15,8 +15,8 @@ import uuid  # This is used to generate unique IDs for each booking.
 
 @dataclass(order=True)
 class Booking:
-    start_time: datetime  # The date and time when the booking begins.
-    end_time: datetime  # The date and time when the booking ends.
+    start_time: datetime
+    end_time: datetime
 
     # booking_id gets a default value automatically.
     # default_factory means "run this function each time a new Booking is made".
@@ -24,11 +24,7 @@ class Booking:
     #
     # compare=False means this field is NOT used when comparing bookings.
     booking_id: str = field(default_factory=lambda: str(uuid.uuid4()), compare=False)
-
-    # A short name for the event.
     title: str = field(default="", compare=False)
-
-    # The person or group responsible for the booking.
     organiser: str = field(default="", compare=False)
 
     def overlaps(self, other: "Booking") -> bool:
@@ -96,21 +92,15 @@ class RoomBookingIndex:
             The correct list index for insertion.
         """
 
-        # lo = lowest possible index where the new booking could go
-        # hi = one past the highest possible index
         lo, hi = 0, len(self.bookings)
 
         # Keep searching until lo and hi meet.
         while lo < hi:
-            # Find the middle index of the current search range.
             mid = (lo + hi) // 2
 
-            # If the middle booking starts before the new start time,
-            # the insert position must be to the RIGHT of mid.
             if self.bookings[mid].start_time < start_time:
                 lo = mid + 1
             else:
-                # Otherwise, the insert position is at mid or to the LEFT of mid.
                 hi = mid
 
         # When the loop ends, lo is the correct insertion position.
@@ -130,13 +120,10 @@ class RoomBookingIndex:
             False -> booking was rejected
         """
 
-        # Reject impossible bookings, like:
-        # start = 14:00, end = 13:00
-        # or start = 14:00, end = 14:00
+        # Reject impossible bookings.
         if booking.end_time <= booking.start_time:
             return False
 
-        # Find where this booking should go in the sorted list.
         pos = self._find_insert_position(booking.start_time)
 
         # Because the list is sorted, the only bookings that could overlap
@@ -151,8 +138,6 @@ class RoomBookingIndex:
         if pos < len(self.bookings) and self.bookings[pos].overlaps(booking):
             return False
 
-        # If no conflicts were found, insert the booking into the list
-        # at the correct position.
         self.bookings.insert(pos, booking)
 
         return True
@@ -195,3 +180,113 @@ class RoomBookingIndex:
                 return booking
 
         return None
+
+    def get_bookings_in_range(
+        self, range_start: datetime, range_end: datetime
+    ) -> List[Booking]:
+        """
+        Return all bookings that happen during a given time range.
+
+        A booking should be included if it overlaps the range at all.
+
+        That means a booking counts if:
+            booking starts before the range ends
+            AND
+            booking ends after the range starts
+
+        Example:
+            booking: 09:30 to 10:30
+            range:   10:00 to 12:00
+
+        This booking should still be returned, even though it started before 10:00.
+        """
+
+        result: List[Booking] = []
+
+        if range_end <= range_start:
+            return result
+
+        # Find where a booking with start_time = range_start would be inserted.
+        #
+        # Since self.bookings is sorted by start_time, this gives us a useful
+        # starting point for the search.
+        pos = self._find_insert_position(range_start)
+
+        # The booking just before the insert position may still overlap the range
+        # if it started earlier but has not ended yet.
+        if pos > 0:
+            prev = self.bookings[pos - 1]
+            if prev.end_time > range_start:
+                result.append(prev)
+
+        i = pos
+
+        while i < len(self.bookings) and self.bookings[i].start_time < range_end:
+
+            # This booking overlaps the range if it ends after range_start.
+            # If so, include it.
+            if self.bookings[i].end_time > range_start:
+                result.append(self.bookings[i])
+
+            i += 1
+
+        return result
+
+    def get_events_on_day(self, target_day: date) -> List[Booking]:
+        """
+        Return all bookings that happen on one specific day.
+
+        Instead of writing completely new logic, we reuse get_bookings_in_range().
+
+        We convert the day into:
+            start of day -> 00:00:00
+            end of day   -> 23:59:59.999999
+
+        Then we ask for all bookings in that full-day range.
+        """
+
+        # time.min == 00:00:00
+        day_start = datetime.combine(target_day, time.min)
+
+        # time.max == 23:59:59.999999
+        day_end = datetime.combine(target_day, time.max)
+
+        # Reuse the range-query method.
+        return self.get_bookings_in_range(day_start, day_end)
+
+    def next_upcoming_event(self, now: datetime) -> Optional[Booking]:
+        """
+        Return the next relevant booking at a given moment.
+
+        This does one of two things:
+        1. If an event is happening right now, return that current event.
+        2. Otherwise, return the next future event.
+        3. If there is nothing current or upcoming, return None.
+
+        Optional[Booking] means:
+            - it returns a Booking if one exists
+            - otherwise it returns None
+        """
+
+        # Find where 'now' would be inserted in the sorted list.
+        pos = self._find_insert_position(now)
+
+        # First check the booking just before that position.
+        if pos > 0 and self.bookings[pos - 1].end_time > now:
+            return self.bookings[pos - 1]
+
+        # If there is no current booking, then the booking at position 'pos'
+        # is the next booking that starts at or after 'now'.
+        if pos < len(self.bookings):
+            return self.bookings[pos]
+
+        # If pos is at the end of the list, there are no more bookings.
+        return None
+
+    def all_bookings(self) -> List[Booking]:
+        """
+        Return a copy of the full bookings list.
+
+        list(self.bookings) creates a shallow copy.
+        """
+        return list(self.bookings)
