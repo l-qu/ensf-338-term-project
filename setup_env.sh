@@ -2,17 +2,17 @@
 
 VENV_DIR=".venv"
 REQ_FILE="requirements.txt"
-APP_FILE="../tui_app.py"
+APP_FILE="/tui_app.py"
 
 # 1. Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment..."
-    python -m venv ../$VENV_DIR
+    python -m venv $VENV_DIR
 fi
 
 # 2. Activate the environment
 echo "Activating virtual environment..."
-source ../$VENV_DIR/bin/activate
+source $VENV_DIR/bin/activate
 
 # 3. Fetch and install requirements via pip
 if [ -f "$REQ_FILE" ]; then
