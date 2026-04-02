@@ -51,46 +51,16 @@ def add_booking_menu(campus: Campus):
 
     print("-" * 70)
 
-    # print out all buildings to choose from
-    print("\nChoose a building to book a room in:")
+    room = get_room(campus)
 
-    building_ids = list(campus.buildings.keys())
-
-    for i in range(len(building_ids)):
-        print(f"\t{i + 1}. {building_ids[i]}")
-    
-    print("\t0. Quit")
-
-    # get user's choice and quit if necessary
-    print("\nEnter your selection: ")
-    choice = get_valid_int(range(len(building_ids) + 1))
-
-    if choice == 0:
-        return
-
-    building = campus.buildings[building_ids[choice - 1]]
-
-    print(f"\nChosen building: {building.building_id}. Please fill out the following fields.\n")
-    
-    # ask  for a room number
-    while True:
-        choice = input("Room number: ")
-        room_id = building.building_id + "-" + choice
-        
-        # check if room exists in the building
-        if room_id in building.rooms.keys():
-            break
-
-        print(f"\tError: Room {room_id} does not exist. Please try again.")
-
-    room = building.rooms[room_id]
+    print(f"\nYou have selected room {room.room_id}. Please fill out the following fields.\n")
 
     booking_date = get_valid_date_str("Date (YYYY-MM-DD): ")
 
     # inform user of bookings on that day
     curr_bookings = room.bookings.get_events_on_day(datetime.strptime(booking_date, "%Y-%m-%d"))
     if curr_bookings:
-        print(f"  !!\t{room_id} already has bookings on {booking_date}.")
+        print(f"  !!\t{room.room_id} already has bookings on {booking_date}.")
         print("\tPlease be mindful of these occupied times or the booking may fail:\n")
         for booking in curr_bookings:
             print(f"\t{booking}")
@@ -185,3 +155,40 @@ def get_valid_time_str(display_str="") -> str:
             print("\tError: invalid time or format. Please try again. ")
     
     return time_str
+
+def get_room(campus: Campus) -> Room:
+    """
+    Walks the user through prompts to choose a room in a building. This method assumes that 
+    the first part of the room ID is the same as the ID of the building it resides in.
+
+    eg. It assumes the room with the ID "ICT-121" can be found in the building with the ID "ICT".
+
+    Returns: the chosen room.
+    """
+
+    # print out all buildings to choose from
+    print("\nChoose a building to book a room in:")
+
+    building_ids = list(campus.buildings.keys())
+
+    for i in range(len(building_ids)):
+        print(f"\t{i + 1}. {building_ids[i]}")
+
+    # get user's choice
+    print("\nEnter your selection: ")
+    choice = get_valid_int(range(1, len(building_ids) + 1))
+
+    building = campus.buildings[building_ids[choice - 1]]
+    
+    # ask  for a room number
+    while True:
+        choice = input("Enter a room number: ")
+        room_id = building.building_id + "-" + choice
+        
+        # check if room exists in the building
+        if room_id in building.rooms.keys():
+            break
+
+        print(f"\tError: Room {room_id} does not exist. Please try again.")
+
+    return building.rooms[room_id]
