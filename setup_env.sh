@@ -2,7 +2,7 @@
 
 VENV_DIR=".venv"
 REQ_FILE="requirements.txt"
-APP_FILE="/tui_app.py"
+APP_FILE="tui_app.py"
 
 # 1. Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
