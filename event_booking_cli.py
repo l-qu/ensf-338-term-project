@@ -1,4 +1,5 @@
 from datetime import date, time, datetime
+from typing import Optional
 
 from event_booking import Booking, RoomBookingIndex
 from temp_map_classes import Campus, Building, Room            # replace with import statement from actual main
@@ -51,36 +52,54 @@ def add_booking_menu(campus: Campus):
 
     print("-" * 70)
 
-    room = get_room(campus)
+    print(f"\nTo book an event space, please fill out the following fields.\n")
 
-    print(f"\nYou have selected room {room.room_id}. Please fill out the following fields.\n")
-
-    booking_date = get_valid_date_str("Date (YYYY-MM-DD): ")
-
-    # inform user of bookings on that day
-    curr_bookings = room.bookings.get_events_on_day(datetime.strptime(booking_date, "%Y-%m-%d"))
-    if curr_bookings:
-        print(f"  !!\t{room.room_id} already has bookings on {booking_date}.")
-        print("\tPlease be mindful of these occupied times or the booking may fail:\n")
-        for booking in curr_bookings:
-            print(f"\t{booking}")
-        print()
-
-    start_time = get_valid_time_str("Start time (HH:MM): ")
-    end_time = get_valid_time_str("End time (HH:MM): ")
     event = input("Event name: ")
     organizer = input("Organizer: ")
+    booking_date = get_valid_date_str("Date (YYYY-MM-DD): ")
+    
+    while True:
+        start_time = get_valid_time_str("Start time (HH:MM): ")
+        end_time = get_valid_time_str("End time (HH:MM): ")
 
-    datetime_start = datetime.strptime(booking_date + " " + start_time, "%Y-%m-%d %H:%M")
-    datetime_end = datetime.strptime(booking_date + " " + end_time, "%Y-%m-%d %H:%M")
+        datetime_start = datetime.strptime(booking_date + " " + start_time, "%Y-%m-%d %H:%M")
+        datetime_end = datetime.strptime(booking_date + " " + end_time, "%Y-%m-%d %H:%M")
+
+        # Valid start and end times if start takes place before end
+        if datetime_start < datetime_end:
+            break
+
+        print("\tError: start time must take place before end time. Please try again.")
 
     new_booking = Booking(datetime_start, datetime_end, title=event, organiser=organizer)
+
+    while True:
+        room = get_room(campus)
+
+        # If the user chose to quit, return from the function
+        if not room:
+            return
+
+        curr_bookings = room.bookings.get_events_on_day(datetime.strptime(booking_date, "%Y-%m-%d").date())
+        
+        # Check if any of the bookings in the chosen room overlap with the user's booking
+        for booking in curr_bookings:
+            if new_booking.overlaps(booking):
+                print(f"\n! The following room booking in {room.room_id} overlaps with yours: ")
+                print(f"\t{booking}\n")
+                print("Please choose a different room.")
+                break
+        else:
+            # No bookings in the room overlap with the user's booking
+            break
+    
+    # Add the new booking
     booking_status = room.bookings.add_booking(new_booking)
 
     if (booking_status):
-        print("Booked successfully!")
+        print("\nBooked successfully!\n")
     else:
-        print("Booking failed. Something went wrong.")
+        print("\nBooking failed. Something went wrong.\n")
     
 
 def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
@@ -156,27 +175,32 @@ def get_valid_time_str(display_str="") -> str:
     
     return time_str
 
-def get_room(campus: Campus) -> Room:
+def get_room(campus: Campus) -> Optional[Room]:
     """
     Walks the user through prompts to choose a room in a building. This method assumes that 
     the first part of the room ID is the same as the ID of the building it resides in.
 
     eg. It assumes the room with the ID "ICT-121" can be found in the building with the ID "ICT".
 
-    Returns: the chosen room.
+    Returns: the chosen room, or None if the user decided to quit.
     """
 
     # print out all buildings to choose from
-    print("\nChoose a building to book a room in:")
+    print("\nChoose a building to select a room from:")
 
     building_ids = list(campus.buildings.keys())
 
     for i in range(len(building_ids)):
         print(f"\t{i + 1}. {building_ids[i]}")
+    
+    print("\t0. Quit")
 
-    # get user's choice
+    # get user's choice and quit if necessary
     print("\nEnter your selection: ")
-    choice = get_valid_int(range(1, len(building_ids) + 1))
+    choice = get_valid_int(range(len(building_ids) + 1))
+
+    if choice == 0:
+        return None
 
     building = campus.buildings[building_ids[choice - 1]]
     
