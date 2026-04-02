@@ -5,14 +5,14 @@ SET "REQ_FILE=requirements.txt"
 SET "APP_FILE=%CD%\..\tui_app.py"
 
 REM 1. Create virtual environment if it doesn't exist
-IF NOT "-d" "%VENV_DIR%" (
+IF NOT "-d" "../%VENV_DIR%" (
   echo "Creating virtual environment..."
-  python "-m" "venv" "%VENV_DIR%"
+  python "-m" "venv" "../%VENV_DIR%"
 )
 
 REM 2. Activate the environment
 echo "Activating virtual environment..."
-source "%VENV_DIR%\bin\activate"
+source "../%VENV_DIR%\bin\activate"
 
 REM 3. Fetch and install requirements via pip
 IF "-f" "%REQ_FILE%" (
