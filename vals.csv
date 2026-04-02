@@ -1,0 +1,10 @@
+source,target,weight
+Library,Science A,3
+Library,ICT,4
+Science A,ENG Block,2
+Science A,Gym,5
+ICT,ENG Block,6
+ICT,Student Union,3
+ICT,Parkade,7
+ENG Block,MFH,2
+Student Union,Residence,5
