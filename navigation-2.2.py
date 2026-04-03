@@ -51,7 +51,7 @@ class NavigationSession:
         if self.current_route is not None:
             self.history.append(self.current_route)
             if len(self.history) > self.max_undo:
-                self.history.pop(0)
+                self.history.pop()
 
         self.current_route = new_route
         return new_route
