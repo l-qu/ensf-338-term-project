@@ -1,3 +1,4 @@
+from collections import deque
 class Route:
     """
     represents a navigation route
@@ -29,8 +30,8 @@ class NavigationSession:
     def __init__(self, campus: "Campus") -> None:
         MAX_UNDO = 10
         self.campus = campus
-        self.history = []
-        self.current_route = Route | None = None 
+        self.history = deque()
+        self.current_route: Route | None = None
         self.max_undo = MAX_UNDO
 
     """
@@ -51,7 +52,7 @@ class NavigationSession:
         if self.current_route is not None:
             self.history.append(self.current_route)
             if len(self.history) > self.max_undo:
-                self.history.pop()
+                self.history.popleft()
 
         self.current_route = new_route
         return new_route
@@ -66,4 +67,4 @@ class NavigationSession:
         if not self.history:
             return None
         self.current_route = self.history.pop()
-        return self.current_route
+        return self.current_route   
