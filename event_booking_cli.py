@@ -1,8 +1,14 @@
+# event_booking_cli.py
 from datetime import date, time, datetime
 from typing import Optional
 
 from event_booking import Booking, RoomBookingIndex
-from temp_map_classes import Campus, Building, Room            # replace with import statement from actual main
+from temp_map_classes import (
+    Campus,
+    Building,
+    Room,
+)  # replace with import statement from actual main
+
 
 def booking_menu(campus: Campus):
     """
@@ -30,8 +36,7 @@ def booking_menu(campus: Campus):
             case 1:
                 add_booking_menu(campus)
             case 2:
-                # handle remove booking
-                pass
+                remove_booking_menu(campus)
             case 3:
                 # handle viewing room bookings
                 pass
@@ -40,13 +45,14 @@ def booking_menu(campus: Campus):
                 print("-" * 70)
                 break
 
+
 def add_booking_menu(campus: Campus):
     """
     CLI for adding a booking.
     Asks user for building, room, date, start time, end time, and event name and organizer,
     then attempts to add a booking to that room. Prints a message upon success or failure.
-    
-    This method does not give the user a chance to retry if they enter an overlapping time; 
+
+    This method does not give the user a chance to retry if they enter an overlapping time;
     however, it does inform the user ahead of time about when the room will be occupied.
     """
 
@@ -57,13 +63,17 @@ def add_booking_menu(campus: Campus):
     event = input("Event name: ")
     organizer = input("Organizer: ")
     booking_date = get_valid_date_str("Date (YYYY-MM-DD): ")
-    
+
     while True:
         start_time = get_valid_time_str("Start time (HH:MM): ")
         end_time = get_valid_time_str("End time (HH:MM): ")
 
-        datetime_start = datetime.strptime(booking_date + " " + start_time, "%Y-%m-%d %H:%M")
-        datetime_end = datetime.strptime(booking_date + " " + end_time, "%Y-%m-%d %H:%M")
+        datetime_start = datetime.strptime(
+            booking_date + " " + start_time, "%Y-%m-%d %H:%M"
+        )
+        datetime_end = datetime.strptime(
+            booking_date + " " + end_time, "%Y-%m-%d %H:%M"
+        )
 
         # Valid start and end times if start takes place before end
         if datetime_start < datetime_end:
@@ -71,7 +81,9 @@ def add_booking_menu(campus: Campus):
 
         print("\tError: start time must take place before end time. Please try again.")
 
-    new_booking = Booking(datetime_start, datetime_end, title=event, organiser=organizer)
+    new_booking = Booking(
+        datetime_start, datetime_end, title=event, organiser=organizer
+    )
 
     while True:
         room = get_room(campus)
@@ -80,27 +92,81 @@ def add_booking_menu(campus: Campus):
         if not room:
             return
 
-        curr_bookings = room.bookings.get_events_on_day(datetime.strptime(booking_date, "%Y-%m-%d").date())
-        
+        curr_bookings = room.bookings.get_events_on_day(
+            datetime.strptime(booking_date, "%Y-%m-%d").date()
+        )
+
         # Check if any of the bookings in the chosen room overlap with the user's booking
         for booking in curr_bookings:
             if new_booking.overlaps(booking):
-                print(f"\n! The following room booking in {room.room_id} overlaps with yours: ")
+                print(
+                    f"\n! The following room booking in {room.room_id} overlaps with yours: "
+                )
                 print(f"\t{booking}\n")
                 print("Please choose a different room.")
                 break
         else:
             # No bookings in the room overlap with the user's booking
             break
-    
+
     # Add the new booking
     booking_status = room.bookings.add_booking(new_booking)
 
-    if (booking_status):
+    if booking_status:
         print("\nBooked successfully!\n")
     else:
         print("\nBooking failed. Something went wrong.\n")
-    
+
+
+def remove_booking_menu(campus: Campus):
+    """
+    CLI for removing a booking.
+    Asks user for a room and a date, shows bookings on that day, then removes the selected booking.
+    """
+
+    print("-" * 70)
+    print(f"\nTo remove a booking, please fill out the following fields.\n")
+
+    room = get_room(campus)
+
+    # If the user chose to quit, return from the function
+    if not room:
+        return
+
+    booking_date = get_valid_date_str("Date (YYYY-MM-DD): ")
+    target_day = datetime.strptime(booking_date, "%Y-%m-%d").date()
+
+    # This returns a list of Booking objects.
+    curr_bookings = room.bookings.get_events_on_day(target_day)
+
+    if not curr_bookings:
+        print(f"\nNo bookings found in {room.room_id} on {booking_date}.\n")
+        return
+
+    # Show the user all bookings for that room on that date.
+    # Each booking is numbered starting at 1 so the user can pick one.
+    print(f"\nBookings in {room.room_id} on {booking_date}:")
+    for i in range(len(curr_bookings)):
+        print(f"\t{i + 1}. {curr_bookings[i]}")
+    print("\t0. Cancel")
+
+    print("\nEnter your selection: ")
+    choice = get_valid_int(list(range(0, len(curr_bookings) + 1)))
+
+    if choice == 0:
+        print("\nCancelled.\n")
+        return
+
+    # This calls the remove_booking() method from RoomBookingIndex.
+    selected_booking = curr_bookings[choice - 1]
+    removed = room.bookings.remove_booking(selected_booking.booking_id)
+
+    if removed:
+        print("\nRemoved successfully!\n")
+        print(f"\t{selected_booking}\n")
+    else:
+        print("\nBooking removal failed. Something went wrong.\n")
+
 
 def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
     """
@@ -123,6 +189,7 @@ def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
 
         return choice
 
+
 def get_valid_date_str(display_str="") -> str:
     """
     Continuously ask user to enter a date until they provide a date in a valid form. (YYYY-MM-DD)
@@ -140,8 +207,9 @@ def get_valid_date_str(display_str="") -> str:
             break
         except ValueError:
             print("\tError: invalid date or format. Please try again. ")
-    
+
     return date_str
+
 
 def get_valid_time_str(display_str="") -> str:
     """
@@ -168,16 +236,19 @@ def get_valid_time_str(display_str="") -> str:
             if minutes in ["00", "30"]:
                 break
 
-            print("\tError: booking times should end in XX:00 or XX:30. Please try again. ")
+            print(
+                "\tError: booking times should end in XX:00 or XX:30. Please try again. "
+            )
 
         except ValueError:
             print("\tError: invalid time or format. Please try again. ")
-    
+
     return time_str
+
 
 def get_room(campus: Campus) -> Optional[Room]:
     """
-    Walks the user through prompts to choose a room in a building. This method assumes that 
+    Walks the user through prompts to choose a room in a building. This method assumes that
     the first part of the room ID is the same as the ID of the building it resides in.
 
     eg. It assumes the room with the ID "ICT-121" can be found in the building with the ID "ICT".
@@ -192,7 +263,7 @@ def get_room(campus: Campus) -> Optional[Room]:
 
     for i in range(len(building_ids)):
         print(f"\t{i + 1}. {building_ids[i]}")
-    
+
     print("\t0. Quit")
 
     # get user's choice and quit if necessary
@@ -203,12 +274,12 @@ def get_room(campus: Campus) -> Optional[Room]:
         return None
 
     building = campus.buildings[building_ids[choice - 1]]
-    
+
     # ask  for a room number
     while True:
         choice = input("Enter a room number: ")
         room_id = building.building_id + "-" + choice
-        
+
         # check if room exists in the building
         if room_id in building.rooms.keys():
             break
