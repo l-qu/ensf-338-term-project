@@ -18,7 +18,7 @@ class ServiceRequest:
         description (String): description of the request
         priority (int): priority level of the request
     """
-    def __init__(self, request_id, description, priority):
+    def __init__(self, request_id: int, description: str, priority: int):
         """
         Initializes a service request.
         Parameters:
@@ -65,7 +65,7 @@ class PriorityQueue:
         else:
             return self.heap[0]
     
-    def enqueue(self, service_request):
+    def enqueue(self, service_request: ServiceRequest):
         """
         Adds a new request in priority order.
         Parameters:
@@ -93,7 +93,7 @@ class PriorityQueue:
             self._heapify_down(0)
         return top_request
 
-    def _heapify_up(self, index):
+    def _heapify_up(self, index: int):
         """
         Restores heap property by moving the element upward
         Parameters:
@@ -107,7 +107,7 @@ class PriorityQueue:
             index = parent_index
             parent_index = (index - 1) // 2
     
-    def _heapify_down(self, index):
+    def _heapify_down(self, index: int):
         """
         Restores heap property by moving the element downward
         Parameters:
