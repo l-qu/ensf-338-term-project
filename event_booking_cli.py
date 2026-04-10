@@ -1,6 +1,6 @@
 # event_booking_cli.py
 from datetime import date, time, datetime
-from typing import Optional
+from typing import List, Optional
 
 from event_booking import Booking, RoomBookingIndex
 from temp_map_classes import (
@@ -191,8 +191,7 @@ def view_bookings_menu(campus: Campus):
             case 2:
                 view_on_day(campus)
             case 3:
-                # events occuring within a certain time range
-                pass
+                view_within_range(campus)
             case _:
                 print("Returning to booking menu.\n")
                 break
@@ -239,7 +238,7 @@ def view_on_day(campus: Campus):
     search_date_str = get_valid_date_str("Enter a date to view bookings on (YYYY-MM-DD): ")
     search_date = datetime.strptime(search_date_str, "%Y-%m-%d").date()
 
-    bookings_on_day = {}        # room_id -> List[Booking]
+    bookings_on_day: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
 
     building: Building
     room: Room
@@ -254,16 +253,76 @@ def view_on_day(campus: Campus):
 
     # Check if any bookings were found on that day, and if so, print them
     if not bookings_on_day:
-        print(f"\nNo events were found on {search_date_str}.\n")
+        print(f"\nNo events were found on {search_date_str}.")
     else:
         print(f"\nHere are the events occuring on {search_date_str}:\n")
-        for room, bookings_list in bookings_on_day.items():
-            print(f"{room}:")
-            for booking in bookings_list:
-                print(f"\t{booking}")
+        print_bookings(bookings_on_day)
     
     print("\nPress ENTER to continue...")
     input()
+
+def view_within_range(campus: Campus):
+    """
+    Handles the viewing option for viewing all the bookings within a certain time range.
+    Asks the user to enter a start date and time, end date and time, and prints out the
+    bookings for each room in that time range.
+    """
+
+    print("Enter a time range to search for events in.\n")
+
+    while True:
+        start_date = get_valid_date_str("Start date (YYYY-MM-DD): ")
+        start_time = get_valid_time_str("Start time (HH:MM): ")
+
+        end_date = get_valid_date_str("End date (YYYY-MM-DD): ")
+        end_time = get_valid_time_str("End time (HH:MM): ")
+
+        datetime_start = datetime.strptime(
+            start_date + " " + start_time, "%Y-%m-%d %H:%M"
+        )
+        datetime_end = datetime.strptime(
+            end_date + " " + end_time, "%Y-%m-%d %H:%M"
+        )
+
+        # Valid start and end times if start takes place before end
+        if datetime_start < datetime_end:
+            break
+
+        print("\tError: start time must take place before end time. Please try again.")
+    
+    bookings_in_range: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
+
+    building: Building
+    room: Room
+    for building in campus.buildings.values():
+        for room in building.rooms.values():
+            # get the room's bookings in that range
+            room_bookings = room.bookings.get_bookings_in_range(datetime_start, datetime_end)
+
+            # if there are bookings in that range for this room, put into dictionary
+            if room_bookings:
+                bookings_in_range[room.room_id] = room_bookings
+
+    # Check if any bookings were found on that day, and if so, print them
+    if not bookings_in_range:
+        print(f"\nNo events were found between {datetime_start} and {datetime_end}.")
+    else:
+        print(f"\nHere are the events occuring between {datetime_start} and {datetime_end}:\n")
+        print_bookings(bookings_in_range)
+        
+    print("\nPress ENTER to continue...")
+    input()
+
+def print_bookings(bookings_per_room: dict[str, List[Booking]]):
+    """
+    Given a dictionary mapping room_id to a list of bookings for that room, nicely prints out
+    the booking(s) for each room. 
+    """
+    
+    for room, bookings_list in bookings_per_room.items():
+        print(f"{room}:")
+        for booking in bookings_list:
+            print(f"\t{booking}")
 
 def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
     """
