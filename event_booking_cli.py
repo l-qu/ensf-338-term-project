@@ -38,7 +38,7 @@ def booking_menu(campus: Campus):
             case 2:
                 remove_booking_menu(campus)
             case 3:
-                # handle viewing room bookings
+                view_bookings_menu(campus)
                 pass
             case _:
                 print("Returning to main menu.\n")
@@ -51,9 +51,6 @@ def add_booking_menu(campus: Campus):
     CLI for adding a booking.
     Asks user for building, room, date, start time, end time, and event name and organizer,
     then attempts to add a booking to that room. Prints a message upon success or failure.
-
-    This method does not give the user a chance to retry if they enter an overlapping time;
-    however, it does inform the user ahead of time about when the room will be occupied.
     """
 
     print("-" * 70)
@@ -167,6 +164,73 @@ def remove_booking_menu(campus: Campus):
     else:
         print("\nBooking removal failed. Something went wrong.\n")
 
+def view_bookings_menu(campus: Campus):
+    """
+    CLI for viewing bookings. This includes options to search for events within a given time
+    range, events on a given day, and the next upcoming event.
+
+    This mainly acts as a sub-menu, and calls other functions to handle the different viewing options.
+    """
+
+    while True:
+        print("-" * 70)
+        print(f"\nHow would you like to search for a booking?")
+        print("\t1. Next upcoming event")
+        print("\t2. Events on a given day")
+        print("\t3. Events occurring within a certain time range")
+        print("\t0. Return to booking menu")
+        print("\nEnter your selection:")
+
+        # valid options are 0, 1, 2, and 3
+        choice = get_valid_int(list(range(0, 4)))
+        print()
+
+        match choice:
+            case 1:
+                view_upcoming(campus)
+                pass
+            case 2:
+                # events on a given day
+                pass
+            case 3:
+                # events occuring within a certain time range
+                pass
+            case _:
+                print("Returning to booking menu.\n")
+                break
+
+def view_upcoming(campus: Campus):
+    """
+    Handles the viewing option for finding the next upcoming event. Searches through the bookings
+    list in each room on campus, and displays the event that is happening the soonest.
+    """
+
+    next_event: Booking = None
+    next_room_booking: Booking
+    next_event_room: str
+
+    building: Building
+    room: Room
+    for building in campus.buildings.values():
+        for room in building.rooms.values():
+            next_room_booking = room.bookings.next_upcoming_event(datetime.now())
+            
+            # skip if no upcoming events in that room
+            if next_room_booking is None:
+                continue
+
+            # check against current "next event" value to see if it happens sooner
+            if (next_event is None) or (next_room_booking.start_time < next_event.start_time):
+                next_event = next_room_booking
+                next_event_room = room.room_id
+
+    if next_event is None:
+        print("No upcoming events found on campus.\n")
+    else:
+        print(f"The next event is occurring in {next_event_room}:\n{next_event}\n")
+
+    print("Press ENTER to continue...")
+    input()
 
 def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
     """
