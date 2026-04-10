@@ -188,10 +188,8 @@ def view_bookings_menu(campus: Campus):
         match choice:
             case 1:
                 view_upcoming(campus)
-                pass
             case 2:
-                # events on a given day
-                pass
+                view_on_day(campus)
             case 3:
                 # events occuring within a certain time range
                 pass
@@ -230,6 +228,41 @@ def view_upcoming(campus: Campus):
         print(f"The next event is occurring in {next_event_room}:\n{next_event}\n")
 
     print("Press ENTER to continue...")
+    input()
+
+def view_on_day(campus: Campus):
+    """
+    Handles the viewing option for viewing all the bookings on a certain day. Asks the user
+    to enter a date, and prints out the bookings for each room under that day.
+    """
+
+    search_date_str = get_valid_date_str("Enter a date to view bookings on (YYYY-MM-DD): ")
+    search_date = datetime.strptime(search_date_str, "%Y-%m-%d").date()
+
+    bookings_on_day = {}        # room_id -> List[Booking]
+
+    building: Building
+    room: Room
+    for building in campus.buildings.values():
+        for room in building.rooms.values():
+            # get the room's bookings on that day
+            room_bookings = room.bookings.get_events_on_day(search_date)
+
+            # if there are bookings on that day, put them in the dictionary
+            if room_bookings:
+                bookings_on_day[room.room_id] = room_bookings
+
+    # Check if any bookings were found on that day, and if so, print them
+    if not bookings_on_day:
+        print(f"\nNo events were found on {search_date_str}.\n")
+    else:
+        print(f"\nHere are the events occuring on {search_date_str}:\n")
+        for room, bookings_list in bookings_on_day.items():
+            print(f"{room}:")
+            for booking in bookings_list:
+                print(f"\t{booking}")
+    
+    print("\nPress ENTER to continue...")
     input()
 
 def get_valid_int(valid_options: list[int], display_str="  >> ") -> int:
