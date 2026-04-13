@@ -8,7 +8,8 @@ from pathlib import Path
 from textual import events, on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Footer, Header, RichLog, Select, Static
+from textual.widgets import Footer, Header, RichLog, Select, Static, Tabs, Tab, Button, Input
+from service_queue import PriorityQueue, ServiceRequest, Priority
 
 import dijkstra
 
@@ -65,12 +66,32 @@ class CampusMapApp(App):
         super().__init__()
         self.csv_path = Path(__file__).with_name("vals.csv")
         self.nodes, self.edges, self.load_error = load_map_data(self.csv_path)
+        self.service_queue = PriorityQueue()
+        self.request_counter = 1
 
     def compose(self) -> ComposeResult:
         """Build widgets shown in the TUI."""
         yield Header()
 
-        with Vertical(id="content"):
+        yield Tabs(
+            Tab("Navigation", id="tab_nav"),
+            Tab("Service Queue", id="tab_service"),
+            id="tabs"
+        )
+
+        with Vertical(id="service_view"):
+            yield Static("[bold]Service Request Queue[/bold]")
+            yield Input(placeholder="Describe issue...", id="service_desc")
+            yield Select(
+                options=[("EMERGENCY", Priority.EMERGENCY), ("STANDARD", Priority.STANDARD), ("LOW", Priority.LOW),],
+                prompt="Priority",
+                id="service_priority",
+            )
+            yield Button("Add Request", id="add_request", variant="primary")
+            yield Button("Process Next", id="process_request")
+            yield RichLog(id="service_log", highlight=True, markup=True)
+    
+        with Vertical(id="nav_view"):
             yield Static("Select a starting and ending node from the dropdowns.")
             yield Static("[green]Available nodes:[/green] " + ", ".join(self.nodes))
             yield Static("[yellow]Shortest Path:[/yellow] pick both nodes", id="path_summary")
