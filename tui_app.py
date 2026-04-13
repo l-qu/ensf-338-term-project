@@ -386,6 +386,45 @@ class CampusMapApp(App):
         if event.key in {"down", "up", "space"} and not is_expanded:
             event.stop()
 
+    @on(Tabs.TabActivated)
+    def switch_tabs(self, event: Tabs.TabActivated) -> None:
+        nav = self.query_one("#nav_view")
+        service = self.query_one("#service_view")
+        if event.tab.id == "tab_nav":
+            nav.display = True
+            service.display = False
+        else:
+            nav.display = False
+            service.display = True
+
+    def on_mount(self) -> None:
+        self.refresh_display()
+        self.query_one("#service_view").display = False
+
+    @on(Button.Pressed, "#add_request")
+    def add_request(self) -> None:
+        desc = self.query_one("#service_desc", Input).value
+        priority = self.query_one("#service_priority", Select).value
+        log = self.query_one("#service_log", RichLog)
+        if not desc:
+            log.write("[red]Error: Description is required[/red]")
+            return
+        if priority is None or str(priority) == "Select.NULL":
+            log.write("[red]Error: Please select a priority[/red]")
+            return
+        request = ServiceRequest(request_id=self.request_counter,description=desc,priority=int(priority),)
+        self.service_queue.enqueue(request)
+        self.request_counter += 1
+        log.write(f"Enqueued: {request.display_request()}")
+
+    @on(Button.Pressed, "#process_request")
+    def process_request(self) -> None:
+        req = self.service_queue.dequeue()
+        log = self.query_one("#service_log", RichLog)
+        if not req:
+            log.write("[yellow]No requests in queue[/yellow]")
+            return
+        log.write(f"[green]Processing:[/green] {req.display_request()}")
 
 if __name__ == "__main__":
     CampusMapApp().run()
