@@ -6,7 +6,7 @@ from math import ceil
 from typing import List
 
 from event_booking import Booking, RoomBookingIndex
-from temp_map_classes import Campus, Room
+from dijkstra import Campus, Room
 
 
 def get_all_rooms(campus: Campus) -> List[Room]:
