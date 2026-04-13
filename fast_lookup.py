@@ -138,7 +138,6 @@ class FastLookup:
         Returns:
             None
         """
-
         self.buildings_id.insert(building.building_id, building)
         self.buildings_name.insert(building.name.lower(), building)
     
@@ -224,12 +223,12 @@ class FastLookup:
             self.rooms_id.delete(room_id)
         return True
     
-    def get_building_location(self, building_id):
+    def find_building_location(self, building_id):
         """
         Gets the location of a building by its id
 
         Parameters:
-            building_id (int): The ID of the building 
+            building_id (str): The ID of the building 
 
         Returns:
             tuple: (latitude, longitude) or coordinates if found
@@ -249,7 +248,7 @@ class FastLookup:
         Updates location of building
 
         Parameters:
-            building_id (int): The ID of the building 
+            building_id (str): The ID of the building 
             new_location (tuple): New (lat, lon) or coordinates
 
         Returns:
@@ -265,6 +264,94 @@ class FastLookup:
         building.location = new_location
         return True
 
+    def update_building_name(self, building_id, new_name):
+        """
+        Updates building name
+
+        Parameters: 
+            building_id (str): The ID of the building
+            new_name (str): New name of the building
+        
+        Returns:
+            bool: True if updated successfully
+        """
+        # check if the name exists already
+        existing = self.find_building_name(new_name.lower().strip())
+        if existing and existing is not building:
+            return False
+        
+        # finding the building from inputted building id
+        building = self.find_building_id(building_id)
+
+        # if building is not found, will return false
+        if building is None:
+            return False
+        
+        building.name = new_name
+        return True
+
+    def update_building_id(self, building_name, new_id):
+        """
+        Updates building ID
+
+        Parameters: 
+            building_name (str): The name of the building
+            new_id (str): New ID of the building
+        
+        Returns:
+            bool: True if updated successfully
+        """
+        # check if the id exists already
+        existing = self.find_building_name(new_id.lower().strip())
+        if existing and existing is not building:
+            return False
+        
+        # finding the building from inputted building name
+        building = self.find_building_name(building_name)
+
+        # if building is not found, will return false
+        if building is None:
+            return False
+        
+        building.name = new_id
+        return True
+    
+    def update_building(self, building_id, new_name = None, new_location = None, new_building_id = None):
+        """
+        Updates building name
+
+        Parameters: 
+            building_id (str): The ID of the building
+            new_name (str)
+        
+        Returns:
+            bool: True if updated successfully
+        """
+        #finding the building and checking if it exists
+        building = self.find_building_id(building_id)
+        if building is None:
+            return False
+
+        update_building_id = building_id
+        if new_building_id is not None:
+            existing = self.find_building_id(new_building_id.lower().strip())
+            if existing_building is not None and existing_building is not building:
+                return False
+            update_building_id = new_building_id.strip()
+
+        if new_name is not None:
+            existing_building = self.find_building_name(new_name.strip())
+            if existing_building is not None and existing_building is not building:
+                return False
+
+        if new_building_id is not None and not self.update_building_id(building_id, update_building_id):
+            return False
+        if new_name is not None and not self.update_building_name(update_building_id, new_name):
+            return False
+        if new_location is not None and not self.update_building_location(targeupdate_building_idt_building_id, new_location):
+            return False
+        return True
+    
     # ---- ROOM FUNCTIONS ----
     def add_room(self, building_id, room):
         """
@@ -285,15 +372,19 @@ class FastLookup:
         if building is None:
             return False
         
+        # checking if it already exists
+        if self.find_room(room.room_id) is not None:
+            return False
+        
         # adding a room to the building object
         building.rooms[room.room_id] = room
 
         # inserting the room into the room hash map
         self.rooms_id.insert(room.room_id, room)
-        self.rooms_id.insert(room.room_id, room)
         self.rooms_capacity.insert(room.room_id, room.capacity)
         self.rooms_type.insert(room.room_id, room.room_type)
         self.rooms_bookings.insert(room.room_id, room.bookings)
+        return True
     
     def find_room(self, room_id):
         """
@@ -374,6 +465,9 @@ class FastLookup:
         # deleting room from the building and deleting room from hash map of rooms
         del building.rooms[room_id]
         self.rooms_id.delete(room_id)
+        self.rooms_capacity.delete(room_id)
+        self.rooms_type.delete(room_id)
+        self.rooms_bookings.delete(room_id)
         return True
     
     def delete_room_name(self, building_name, room_id):
@@ -403,9 +497,162 @@ class FastLookup:
         # deleting room from the building and deleting room from hash map of rooms
         del building.rooms[room_id]
         self.rooms_id.delete(room_id)
+        self.rooms_capacity.delete(room_id)
+        self.rooms_type.delete(room_id)
+        self.rooms_bookings.delete(room_id)
         return True
     
+    def update_room_id(self, building_id, room_id, new_room_id):
+        """
+        Updates room's ID 
 
+        Parameters: 
+            building_id (str): The ID of the building
+            room_id (str): Current room ID
+            new_room_id (str): 
+        
+        Returns:
+            bool: True if updated successfully
+        """
 
+        # finding if the building exists
+        building = self.find_building_id(building_id)
+        if building is None or room_id not in building.rooms:
+            return False
 
+        # finding the room in the building
+        room = building.rooms[room_id]
 
+        # finding if a room with that id exists already
+        existing_room = self.find_room(new_room_id.strip())
+        if existing_room is not None and existing_room is not room:
+            return False
+
+        # if they are the same already, done
+        if new_room_id.strip() == room.room_id:
+            return True
+
+        # deleting the room information
+        self.rooms_id.delete(room_id)
+        self.rooms_capacity.delete(room_id)
+        self.rooms_type.delete(room_id)
+        self.rooms_bookings.delete(room_id)
+        del building.rooms[room_id]
+
+        # putting the new id and old info back in
+        room.room_id = new_room_id.strip()
+        building.rooms[new_room_id.strip()] = room
+        self.rooms_id.insert(new_room_id.strip(), room)
+        self.rooms_capacity.insert(new_room_id.strip(), room.capacity)
+        self.rooms_type.insert(new_room_id.strip(), room.room_type)
+        self.rooms_bookings.insert(new_room_id.strip(), room.bookings)
+        return True
+    
+    def update_room_type(self, room_id, new_room_type):
+        """
+        Updates a room's type.
+
+        Parameters:
+            room_id (str): The room ID to update.
+            new_room_type (str): The replacement room type.
+
+        Returns:
+            bool: True if updated successfully.
+        """
+
+        # checking if the room exists or not
+        room = self.find_room(room_id)
+        if room is None:
+            return False
+        
+        # assigning the new room type
+        room.room_type = new_room_type.strip()
+        self.rooms_type.insert(room.room_id, room.room_type)
+        return True
+
+    def update_room_capacity(self, room_id, new_capacity):
+        """
+        Updates a room's capacity.
+
+        Parameters:
+            room_id (str): The room ID to update.
+            new_capacity (int): The replacement room capacity.
+
+        Returns:
+            bool: True if updated successfully.
+        """
+
+        # checking if the room exists or not and error checks for capacity
+        room = self.find_room(room_id)
+        if room is None or not isinstance(new_capacity, int) or new_capacity < 0:
+            return False
+
+        # setting new capasity
+        room.capacity = new_capacity
+        self.rooms_capacity.insert(room.room_id, room.capacity)
+        return True
+
+    def update_room_booking(self, room_id, new_booking):
+        """
+        Replaces a room's bookings.
+        ****** REPLACE WITH ACTUAL BOOKING????? ********
+
+        Parameters:
+            room_id (str): The room ID to update.
+            new_booking: A booking value or iterable of booking values.
+
+        Returns:
+            bool: True if updated successfully.
+        """
+
+        # checking if room exists
+        room = self.find_room(room_id)
+        if room is None or new_booking is None:
+            return False
+
+        # assigning bookings
+        room.bookings = list(new_booking)
+        self.rooms_bookings.insert(room.room_id, room.bookings)
+        return True
+
+    def update_room(self, building_id, room_id, new_room_id = None, new_capacity = None, new_room_type = None, new_bookings = None, new_room_name = None):
+        """
+        Updates one or more room fields.
+
+        Parameters:
+            building_id (str): The building that owns the room.
+            room_id (str): The current room ID.
+            new_room_id (str | None): The replacement room ID.
+            new_capacity (int | None): The replacement room capacity.
+            new_room_type (str | None): The replacement room type.
+            new_bookings (iterable | None): The replacement bookings list.
+            new_room_name (str | None): The replacement room name.
+
+        Returns:
+            bool: True if every requested update succeeds.
+        """
+
+        # making sure room exists
+        building = self.find_building_id(building_id)
+        if building is None or room_id not in building.rooms:
+            return False
+
+        # room id to update
+        active_room_id = room_id
+
+        # updating room id if it is inputted
+        if new_room_id is not None:
+            if not self.update_room_id(building_id, room_id, new_room_id):
+                return False
+            active_room_id = new_room_id.strip()
+
+        # updating the rest
+        if new_room_name is not None and not self.update_room_name(active_room_id, new_room_name):
+            return False
+        if new_capacity is not None and not self.update_room_capacity(active_room_id, new_capacity):
+            return False
+        if new_room_type is not None and not self.update_room_type(active_room_id, new_room_type):
+            return False
+        if new_bookings is not None and not self.update_room_booking(active_room_id, new_bookings):
+            return False
+        return True
