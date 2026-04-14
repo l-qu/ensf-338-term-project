@@ -26,6 +26,7 @@ from booking_seed import ensure_booking_indices, seed_bookings
 from dijkstra import Room, load_campus_from_csv
 from event_booking import Booking
 from service_queue import Priority, PriorityQueue, ServiceRequest
+from fast_lookup import FastLookup
 
 
 def load_map_data(
@@ -84,11 +85,13 @@ class CampusMapApp(App):
         self.nodes, self.edges, self.load_error = load_map_data(self.csv_path)
 
         self.service_queue = PriorityQueue()
+        self.lookup = FastLookup()
         self.request_counter = 1
 
         # from dijkstra.py
         self.campus = load_campus_from_csv(self.csv_path)
         self._add_rooms_to_loaded_campus()
+        self._rebuild_lookup_from_campus()
         ensure_booking_indices(self.campus)
 
         try:
@@ -165,6 +168,16 @@ class CampusMapApp(App):
                 if room_id not in building.rooms:
                     building.add_room(Room(room_id, capacity, room_type))
 
+    def _rebuild_lookup_from_campus(self) -> None:
+        """Build fast lookup indexes from the shared campus model."""
+        self.lookup = FastLookup()
+
+        for building in self.campus.buildings.values():
+            self.lookup.add_building(building)
+            for room in building.rooms.values():
+                self.lookup.add_room(building.building_id, room)
+
+
     def compose(self) -> ComposeResult:
         """Build widgets shown in the TUI."""
         yield Header()
@@ -172,9 +185,54 @@ class CampusMapApp(App):
         yield Tabs(
             Tab("Navigation", id="tab_nav"),
             Tab("Service Queue", id="tab_service"),
+            Tab("Information Lookup", id ="tab_lookup"),
             Tab("Bookings", id="tab_bookings"),
             id="tabs",
         )
+        with Vertical(id = "lookup_view"):
+            yield Static("[bold]Building and Room Information[/bold]")
+
+            yield Select(
+                options = [
+                    ("Buildings", "buildings"),
+                    ("Rooms", "rooms"),
+                ],
+                prompt = "Choose what to display",
+                id = "info_mode",
+                allow_blank = False,
+                value = "buildings",
+            )
+
+            yield RichLog(id = "lookup_log", highlight = True, markup = True)
+
+            yield Static("")
+            yield Static("[bold cyan]Add Room[/bold cyan]")
+            yield Select(
+                options = [],
+                prompt = "Choose building for new room",
+                id = "add_room_building_id",
+                allow_blank = True,
+            )
+            yield Input(placeholder="Room ID...", id = "add_room_id")
+            yield Input(placeholder="Room capacity...", id = "add_room_capacity")
+            yield Input(placeholder="Room type...", id = "add_room_type")
+            yield Button("Add Room to Building", id = "add_room", variant = "success")
+
+            yield Static("")
+            yield Static("[bold red]Delete Room[/bold red]")
+            yield Select(
+                options = [],
+                prompt = "Select building",
+                id = "delete_room_building",
+                allow_blank = True,
+            )
+            yield Select(
+                options = [],
+                prompt = "Select room",
+                id = "delete_room_id",
+                allow_blank = True,
+            )
+            yield Button("Delete Room", id = "delete_room", variant = "error")
 
         with VerticalScroll(id="service_view"):
             yield Static("[bold]Service Request Queue[/bold]")
@@ -194,11 +252,25 @@ class CampusMapApp(App):
 
         with Vertical(id="nav_view"):
             yield Static("Select a starting and ending node from the dropdowns.")
-            yield Static("[green]Available nodes:[/green] " + ", ".join(self.nodes))
+            yield Static("[green]Available nodes:[/green] " + ", ".join(self.nodes), id="available_nodes",)
             yield Static(
                 "[yellow]Shortest Path:[/yellow] pick both nodes", id="path_summary"
             )
             yield RichLog(id="map_display", highlight=True, markup=True)
+
+            with Horizontal(id="selectors_row"):
+                yield Select(
+                    options=[(node, node) for node in self.nodes],
+                    prompt="Starting Node",
+                    id="start_node",
+                    allow_blank=True,
+                )
+                yield Select(
+                    options=[(node, node) for node in self.nodes],
+                    prompt="Ending Node",
+                    id="end_node",
+                    allow_blank=True,
+                )
 
         with VerticalScroll(id="bookings_view"):
             yield Static("[bold]Room and Event Booking[/bold]")
@@ -238,39 +310,22 @@ class CampusMapApp(App):
 
             yield RichLog(id="booking_log", highlight=True, markup=True)
 
-        with Horizontal(id="selectors_row"):
-            yield Select(
-                options=[(node, node) for node in self.nodes],
-                prompt="Starting Node",
-                id="start_node",
-                allow_blank=True,
-            )
-            yield Select(
-                options=[(node, node) for node in self.nodes],
-                prompt="Ending Node",
-                id="end_node",
-                allow_blank=True,
-            )
-
         yield Footer()
 
     def on_mount(self) -> None:
         """Render initial state and set initial tab visibility/focus."""
+        self.refresh_node_selects()
+        self.refresh_building_select()
         self.refresh_display()
-        self.query_one("#service_view").display = False
-        self.query_one("#bookings_view").display = False
-        self.query_one("#start_node", Select).focus()
+        self.refresh_delete_building_select()
 
-        log = self.query_one("#booking_log", RichLog)
-        if self.booking_seed_error:
-            log.write(f"[red]Booking seed failed:[/red] {self.booking_seed_error}")
-        else:
-            log.write(
-                f"[green]Loaded booking dataset with {self.seeded_booking_count} bookings.[/green]"
-            )
-            log.write(
-                "[cyan]Use the Bookings tab to add, remove, and query room bookings.[/cyan]"
-            )
+        self.query_one("#nav_view").display = True
+        self.query_one("#service_view").display = False
+        self.query_one("#lookup_view").display = False
+        self.query_one("#bookings_view").display = False
+
+        self.refresh_info_view()
+        self.query_one("#start_node", Select).focus()
 
     @on(Select.Changed, "#start_node")
     @on(Select.Changed, "#end_node")
@@ -549,10 +604,12 @@ class CampusMapApp(App):
         """Show only the active tab content."""
         nav = self.query_one("#nav_view")
         service = self.query_one("#service_view")
+        lookup = self.query_one("#lookup_view")
         bookings = self.query_one("#bookings_view")
 
         nav.display = event.tab.id == "tab_nav"
         service.display = event.tab.id == "tab_service"
+        lookup.display = event.tab.id == "tab_lookup"
         bookings.display = event.tab.id == "tab_bookings"
 
     @on(Button.Pressed, "#add_request")
@@ -892,6 +949,188 @@ class CampusMapApp(App):
 
         if not found_any:
             log.write("[yellow]No rooms are currently configured.[/yellow]")
+    
+    # -- LOOKUP STUFF --
+    def render_buildings(self) -> None:
+        """ Display all buildings in the lookup log. """
+        log = self.query_one("#lookup_log", RichLog)
+        log.clear()
+        log.write("[bold cyan]All Buildings[/bold cyan]")
+        log.write("")
+
+        buildings = self.lookup.list_buildings()
+        if not buildings:
+            log.write("[yellow]No buildings available.[/yellow]")
+            return
+
+        for building in sorted(buildings, key=lambda b: b.name.lower()):
+            room_count = len(building.rooms)
+
+            log.write(
+                f"- {building.name} | ID: {building.building_id} | "
+                f"Location: {self._node_positions().get(building.name, 'Not placed')} | Rooms: {room_count}"
+            )
+    
+    def refresh_building_select(self) -> None:
+        """ Refresh the building dropdown used when adding a room. """
+        building_select = self.query_one("#add_room_building_id", Select)
+
+        buildings = sorted(
+            self.lookup.list_buildings(),
+            key=lambda building: building.name.lower()
+        )
+
+        options = [
+            (f"{building.name} ({building.building_id})", building.building_id)
+            for building in buildings
+        ]
+
+        building_select.set_options(options)
+
+    def render_rooms(self) -> None:
+        """ Display all rooms in the lookup log. """
+        log = self.query_one("#lookup_log", RichLog)
+        log.clear()
+        log.write("[bold cyan]All Rooms[/bold cyan]\n")
+
+        found_any = False
+
+        for building in sorted(self.campus.buildings.values(), key=lambda b: b.name.lower()):
+            for room in sorted(building.rooms.values(), key=lambda r: r.room_id.lower()):
+                found_any = True
+
+                booking_count = 0
+                if hasattr(room.bookings, "all_bookings"):
+                    booking_count = len(room.bookings.all_bookings())
+
+                log.write(
+                    f"- {room.room_id} | Building: {building.name} | "
+                    f"Capacity: {room.capacity} | Type: {room.room_type} | "
+                    f"Bookings: {booking_count}"
+                )
+
+        if not found_any:
+            log.write("[yellow]No rooms available.[/yellow]")
+
+    def refresh_info_view(self) -> None:
+        """ Refresh the information tab based on dropdown selection. """
+        mode = self.query_one("#info_mode", Select).value
+        if mode == "rooms":
+            self.render_rooms()
+        else:
+            self.render_buildings()
+    
+    def refresh_node_selects(self) -> None:
+        """ Refresh start/end node dropdowns after buildings are added. """
+        options = [(node, node) for node in self.nodes]
+
+        self.query_one("#start_node", Select).set_options(options)
+        self.query_one("#end_node", Select).set_options(options)
+        self.query_one("#available_nodes", Static).update(
+            "[green]Available nodes:[/green] " + ", ".join(self.nodes)
+        )
+    
+    def refresh_delete_building_select(self):
+        """ Refresh selection after deletion """
+        select = self.query_one("#delete_room_building", Select)
+
+        buildings = sorted(
+            self.lookup.list_buildings(),
+            key=lambda b: b.name.lower()
+        )
+
+        options = [
+            (f"{b.name} ({b.building_id})", b.building_id)
+            for b in buildings
+        ]
+
+        select.set_options(options)
+    
+    @on(Select.Changed, "#info_mode")
+    def on_info_mode_changed(self, _event: Select.Changed) -> None:
+        self.refresh_info_view()
+
+    @on(Button.Pressed, "#add_room")
+    def add_room_to_building(self) -> None:
+        """ Adds the room to a building via lookup menu"""
+        building_id = self.query_one("#add_room_building_id", Select).value
+        room_id = self.query_one("#add_room_id", Input).value.strip()
+        capacity_text = self.query_one("#add_room_capacity", Input).value.strip()
+        room_type = self.query_one("#add_room_type", Input).value.strip()
+        log = self.query_one("#lookup_log", RichLog)
+
+        if not building_id or not room_id or not capacity_text or not room_type:
+            log.write("[red]Fill all fields.[/red]")
+            return
+        try:
+            capacity = int(capacity_text)
+        except ValueError:
+            log.write("[red]Capacity must be integer.[/red]")
+            return
+
+        building = self.campus.buildings.get(building_id)
+        if building is None:
+            log.write("[red]Building not found.[/red]")
+            return
+
+        if room_id in building.rooms:
+            log.write("[red]Room already exists.[/red]")
+            return
+
+        room = Room(room_id, capacity, room_type)
+        building.add_room(room)
+
+        self.lookup.add_room(building_id, room)
+
+        log.clear()
+        log.write("[green]Room added successfully.[/green]")
+        self.refresh_info_view()
+    
+    @on(Select.Changed, "#info_mode")
+    def on_info_mode_changed(self, _event: Select.Changed) -> None:
+        self.refresh_info_view()
+
+    @on(Select.Changed, "#delete_room_building")
+    def update_delete_room_list(self, event: Select.Changed):
+        building_id = event.value
+        room_select = self.query_one("#delete_room_id", Select)
+
+        if not building_id:
+            room_select.set_options([])
+            return
+
+        rooms = self.lookup.list_building_rooms(building_id)
+
+        options = [
+            (room.room_id, room.room_id)
+            for room in rooms
+        ]
+
+        room_select.set_options(options)
+    
+    @on(Button.Pressed, "#delete_room")
+    def delete_room(self):
+        """ Delete room completely """
+        building_id = self.query_one("#delete_room_building", Select).value
+        room_id = self.query_one("#delete_room_id", Select).value
+        log = self.query_one("#lookup_log", RichLog)
+
+        if not building_id or not room_id:
+            log.write("[red]Select building and room.[/red]")
+            return
+
+        building = self.campus.buildings.get(building_id)
+        if building is None or room_id not in building.rooms:
+            log.write("[red]Room not found.[/red]")
+            return
+        
+        del building.rooms[room_id]
+        self.lookup.delete_room_id(building_id, room_id)
+
+        log.clear()
+        log.write(f"[green]Deleted {room_id}[/green]")
+
+        self.refresh_info_view()
 
 
 if __name__ == "__main__":

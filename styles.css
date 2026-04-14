@@ -32,3 +32,12 @@ Screen {
 #end_node {
 	margin-left: 1;
 }
+
+#lookup_view {
+    height: 1fr;
+}
+
+#lookup_log {
+    height: 1fr;
+    min-height: 10;
+}
