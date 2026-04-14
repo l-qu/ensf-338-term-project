@@ -1,3 +1,5 @@
+import timeit
+
 class HashTable:
     """
     Hash table using seperate chaining for collisions
@@ -167,6 +169,36 @@ class FastLookup:
 
         return self.buildings_name.lookup(building_name.lower())
     
+    def list_buildings(self):
+        """
+        Lists all buildings
+
+        Returns:
+            list: All building objects
+        """
+        buildings = []
+        for bucket in self.buildings_id.hash_table:
+            for _building_id, building in bucket:
+                buildings.append(building)
+        
+        return buildings
+    
+    def list_building_rooms(self, building_id):
+        """
+        Lists all rooms inside one building
+
+        Parameters:
+            building_id (str): ID of the building
+
+        Returns:
+            list: All room objects in the building
+        """
+        building = self.find_building_id(building_id)
+        if building is None:
+            return []
+
+        return list(building.rooms.values())  
+    
     def delete_building_id(self, building_id):
         """
         Deletes a building using its ID and removes associated roooms
@@ -193,6 +225,10 @@ class FastLookup:
         # deleting all rooms from the building as well
         for room_id in building.rooms:
             self.rooms_id.delete(room_id)
+            self.rooms_capacity.delete(room_id)
+            self.rooms_type.delete(room_id)
+            self.rooms_bookings.delete(room_id)
+        building.rooms.clear()
         return True
     
     def delete_building_name(self, building_name):
@@ -216,11 +252,15 @@ class FastLookup:
         
         # if it is, then the building in id and name hash maps will be deleted
         self.buildings_id.delete(building.building_id)
-        self.buildings_name.delete(building_name.lower())
+        self.buildings_name.delete(building.name.lower())
 
         # deleting all rooms from the building as well
-        for room_id in building.rooms:
+        for room_id in list(building.rooms):
             self.rooms_id.delete(room_id)
+            self.rooms_capacity.delete(room_id)
+            self.rooms_type.delete(room_id)
+            self.rooms_bookings.delete(room_id)
+        building.rooms.clear()
         return True
     
     def find_building_location(self, building_id):
@@ -348,7 +388,7 @@ class FastLookup:
             return False
         if new_name is not None and not self.update_building_name(update_building_id, new_name):
             return False
-        if new_location is not None and not self.update_building_location(targeupdate_building_idt_building_id, new_location):
+        if new_location is not None and not self.update_building_location(update_building_id, new_location):
             return False
         return True
     
@@ -385,6 +425,21 @@ class FastLookup:
         self.rooms_type.insert(room.room_id, room.room_type)
         self.rooms_bookings.insert(room.room_id, room.bookings)
         return True
+    
+    def find_room_building (self, room_id):
+        """
+        Finds the building inc which the room belongs
+        
+        Parameters:
+            room_id (str): Room ID to search for building it's in
+
+        Returns:
+            Building: The building it is housed in
+        """
+        for building in self.list_buildings():
+            if room_id in building.rooms:
+                return building
+        return None
     
     def find_room(self, room_id):
         """
@@ -647,8 +702,6 @@ class FastLookup:
             active_room_id = new_room_id.strip()
 
         # updating the rest
-        if new_room_name is not None and not self.update_room_name(active_room_id, new_room_name):
-            return False
         if new_capacity is not None and not self.update_room_capacity(active_room_id, new_capacity):
             return False
         if new_room_type is not None and not self.update_room_type(active_room_id, new_room_type):
@@ -656,3 +709,76 @@ class FastLookup:
         if new_bookings is not None and not self.update_room_booking(active_room_id, new_bookings):
             return False
         return True
+
+    def list_rooms(self, building_id):
+        """
+        Lists all rooms of a building
+
+        Parameters:
+            building_id (str): ID of the building to list rooms of
+
+        Returns:
+            Rooms: List of all the rooms in the building
+        """
+        rooms = []
+
+        for bucket in self.rooms_id.hash_table:
+            for _room_id, room in bucket:
+                rooms.append(room)
+
+        return rooms
+
+    # ---------- PERFORMANCE DEMO ----------
+
+    def benchmark_lookup(self, sizes=None, repeats=1000):
+        """
+        Benchmark lookup time using timeit to demonstrate near O(1) performance.
+
+        Parameters:
+            sizes (list[int]): Different dataset sizes to test
+            repeats (int): Number of repeated lookups per test
+
+        Returns:
+            list of (size, avg_time)
+        """
+
+        if sizes is None:
+            sizes = [100, 1000, 5000, 10000, 20000]
+
+        results = []
+
+        class DemoBuilding:
+            def __init__(self, building_id, name):
+                self.building_id = building_id
+                self.name = name
+                self.location = (0, 0)
+                self.rooms = {}
+
+        for size in sizes:
+            lookup = FastLookup(size * 2, size * 2)
+
+            # populate hash table
+            for i in range(size):
+                lookup.add_building(DemoBuilding(f"B{i}", f"Building {i}"))
+
+            target_key = f"B{size // 2}"
+
+            # time only the lookup
+            time_taken = timeit.timeit(
+                stmt=lambda: lookup.find_building_id(target_key),
+                number=repeats
+            )
+
+            avg_time = time_taken / repeats
+            results.append((size, avg_time))
+
+        return results
+
+
+if __name__ == "__main__":
+    fl = FastLookup()
+    results = fl.benchmark_lookup()
+
+    print("Lookup Benchmark (timeit):")
+    for size, t in results:
+        print(f"{size:>6} records -> {t:.10f} seconds per lookup")
