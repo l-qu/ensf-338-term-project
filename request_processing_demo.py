@@ -9,7 +9,7 @@ def demo_20_requests():
     queue = RequestList()
 
     print("--- Enqueuing 20 requests ---")
-    for i in range(1, 21):
+    for i in range(1, 11):
         number = randint(1, 3)
         if (number == 1):
             req_type = "navigation"

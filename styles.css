@@ -41,3 +41,39 @@ Screen {
     height: 1fr;
     min-height: 10;
 }
+
+#lookup_view {
+    height: 1fr;
+    padding: 1 1;
+}
+
+#lookup_top_controls {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#info_target {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#info_action_mode {
+    width: 1fr;
+}
+
+#lookup_search_input {
+    margin-top: 1;
+    margin-bottom: 1;
+    height: auto;
+}
+
+#lookup_search_button {
+    margin-bottom: 1;
+    width: auto;
+}
+
+#lookup_log {
+    height: 1fr;
+    min-height: 10;
+    margin-top: 1;
+}

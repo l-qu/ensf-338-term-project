@@ -188,49 +188,76 @@ class CampusMapApp(App):
             Tab("Bookings", id="tab_bookings"),
             id="tabs",
         )
-        with Vertical(id = "lookup_view"):
+        
+        with VerticalScroll(id="lookup_view"):
             yield Static("[bold]Building and Room Information[/bold]")
-            yield Select(
-                options = [
-                    ("Buildings", "buildings"),
-                    ("Rooms", "rooms"),
-                ],
-                prompt = "Choose what to display",
-                id = "info_mode",
-                allow_blank = False,
-                value = "buildings",
-            )
 
-            yield RichLog(id = "lookup_log", highlight = True, markup = True)
+            with Horizontal(id="lookup_top_controls"):
+                yield Select(
+                    options=[
+                        ("Buildings", "buildings"),
+                        ("Rooms", "rooms"),
+                    ],
+                    prompt="Choose category",
+                    id="info_target",
+                    allow_blank=False,
+                    value="buildings",
+                )
+
+                yield Select(
+                    options=[
+                        ("List All", "list"),
+                        ("Search", "search"),
+                    ],
+                    prompt="Choose mode",
+                    id="info_action_mode",
+                    allow_blank=False,
+                    value="list",
+                )
+            yield Input(
+                placeholder="Search building ID/name or room ID",
+                id="lookup_search_input",
+            )
+            yield Button("Search", id="lookup_search_button", variant="primary")
+
+            yield RichLog(id="lookup_log", highlight=True, markup=True)
 
             yield Static("")
             yield Static("[bold cyan]Add Room[/bold cyan]")
             yield Select(
-                options = [],
-                prompt = "Choose building for new room",
-                id = "add_room_building_id",
-                allow_blank = True,
+                options=[],
+                prompt="Choose building for new room",
+                id="add_room_building_id",
+                allow_blank=True,
             )
-            yield Input(placeholder="Room ID (ex. ICT-212)", id = "add_room_id")
-            yield Input(placeholder="Room capacity (ex. 100)", id = "add_room_capacity")
-            yield Input(placeholder="Room type (ex. Lecture hall, Classroom, Lab)", id = "add_room_type")
-            yield Button("Add Room to Building", id = "add_room", variant = "success")
+            yield Input(placeholder="Room ID (ex. ICT-212)", id="add_room_id")
+            yield Input(placeholder="Room capacity (ex. 100)", id="add_room_capacity")
+            yield Input(placeholder="Room type (ex. Lecture Hall, Classroom, Lab)", id="add_room_type")
+            yield Button("Add Room to Building", id="add_room", variant="success")
+
+            yield Static("")
+            yield Static("[bold yellow]Edit Room[/bold yellow]")
+            yield Input(placeholder="Existing room ID", id="edit_room_old_id")
+            yield Input(placeholder="New room ID (optional)", id="edit_room_new_id")
+            yield Input(placeholder="New capacity (optional)", id="edit_room_new_capacity")
+            yield Input(placeholder="New room type (optional)", id="edit_room_new_type")
+            yield Button("Edit Room", id="edit_room", variant="warning")
 
             yield Static("")
             yield Static("[bold red]Delete Room[/bold red]")
             yield Select(
-                options = [],
-                prompt = "Select building",
-                id = "delete_room_building",
-                allow_blank = True,
+                options=[],
+                prompt="Select building",
+                id="delete_room_building",
+                allow_blank=True,
             )
             yield Select(
-                options = [],
-                prompt = "Select room",
-                id = "delete_room_id",
-                allow_blank = True,
+                options=[],
+                prompt="Select room",
+                id="delete_room_id",
+                allow_blank=True,
             )
-            yield Button("Delete Room", id = "delete_room", variant = "error")
+            yield Button("Delete Room", id="delete_room", variant="error")
 
         with VerticalScroll(id="service_view"):
             yield Static("[bold]Service Request Queue[/bold]")
@@ -322,6 +349,7 @@ class CampusMapApp(App):
         self.query_one("#lookup_view").display = False
         self.query_one("#bookings_view").display = False
 
+        self.refresh_lookup_mode()
         self.refresh_info_view()
         self.query_one("#start_node", Select).focus()
 
@@ -1011,9 +1039,24 @@ class CampusMapApp(App):
             log.write("[yellow]No rooms available.[/yellow]")
 
     def refresh_info_view(self) -> None:
-        """ Refresh the information tab based on dropdown selection. """
-        mode = self.query_one("#info_mode", Select).value
-        if mode == "rooms":
+        """Refresh the lookup tab based on category and mode."""
+        target = self.query_one("#info_target", Select).value
+        mode = self.query_one("#info_action_mode", Select).value
+        log = self.query_one("#lookup_log", RichLog)
+
+        self.refresh_lookup_mode()
+
+        if mode == "search":
+            log.clear()
+            if target == "rooms":
+                log.write("[bold cyan]Room Search Mode[/bold cyan]")
+                log.write("Enter a room ID, then press Search.")
+            else:
+                log.write("[bold cyan]Building Search Mode[/bold cyan]")
+                log.write("Enter a building ID or building name, then press Search.")
+            return
+
+        if target == "rooms":
             self.render_rooms()
         else:
             self.render_buildings()
@@ -1044,9 +1087,22 @@ class CampusMapApp(App):
 
         select.set_options(options)
     
-    @on(Select.Changed, "#info_mode")
-    def on_info_mode_changed(self, _event: Select.Changed) -> None:
-        self.refresh_info_view()
+    def refresh_lookup_mode(self) -> None:
+        """Enable search widgets only when search mode is selected."""
+        mode = self.query_one("#info_action_mode", Select).value
+        search_input = self.query_one("#lookup_search_input", Input)
+        search_button = self.query_one("#lookup_search_button", Button)
+
+        is_search = mode == "search"
+
+        search_input.disabled = not is_search
+        search_button.disabled = not is_search
+
+        if is_search:
+            search_input.placeholder = "Search building ID/name or room ID"
+        else:
+            search_input.value = ""
+            search_input.placeholder = "Switch mode to Search to use this"
 
     @on(Button.Pressed, "#add_room")
     def add_room_to_building(self) -> None:
@@ -1084,8 +1140,9 @@ class CampusMapApp(App):
         log.write("[green]Room added successfully.[/green]")
         self.refresh_info_view()
     
-    @on(Select.Changed, "#info_mode")
-    def on_info_mode_changed(self, _event: Select.Changed) -> None:
+    @on(Select.Changed, "#info_target")
+    @on(Select.Changed, "#info_action_mode")
+    def on_lookup_controls_changed(self, _event: Select.Changed) -> None:
         self.refresh_info_view()
 
     @on(Select.Changed, "#delete_room_building")
@@ -1129,6 +1186,103 @@ class CampusMapApp(App):
         log.write(f"[green]Deleted {room_id}[/green]")
 
         self.refresh_info_view()
+
+    @on(Button.Pressed, "#lookup_search_button")
+    def lookup_search_pressed(self) -> None:
+        """Search for a building or room depending on the current toggle."""
+        target = self.query_one("#info_target", Select).value
+        query = self.query_one("#lookup_search_input", Input).value.strip()
+        log = self.query_one("#lookup_log", RichLog)
+
+        log.clear()
+
+        if not query:
+            log.write("[red]Enter a search value.[/red]")
+            return
+
+        if target == "rooms":
+            room = self.lookup.find_room(query)
+            if room is None:
+                log.write(f"[red]No room found for key: {query}[/red]")
+                return
+
+            building = self.lookup.find_room_building(query)
+            building_name = building.name if building else "Unknown"
+
+            booking_count = 0
+            if hasattr(room.bookings, "all_bookings"):
+                booking_count = len(room.bookings.all_bookings())
+
+            log.write("[bold green]Room Found[/bold green]")
+            log.write(f"Room ID: {room.room_id}")
+            log.write(f"Building: {building_name}")
+            log.write(f"Capacity: {room.capacity}")
+            log.write(f"Type: {room.room_type}")
+            log.write(f"Bookings: {booking_count}")
+            return
+
+        building = self.lookup.find_building_id(query)
+        if building is None:
+            building = self.lookup.find_building_name(query)
+
+        if building is None:
+            log.write(f"[red]No building found for key: {query}[/red]")
+            return
+
+        log.write("[bold green]Building Found[/bold green]")
+        log.write(f"Name: {building.name}")
+        log.write(f"ID: {building.building_id}")
+        log.write(f"Location: {building.location}")
+        log.write(f"Rooms: {len(building.rooms)}")
+
+    @on(Button.Pressed, "#edit_room")
+    def edit_room(self) -> None:
+        """Edit an existing room."""
+        log = self.query_one("#lookup_log", RichLog)
+        old_room_id = self.query_one("#edit_room_old_id", Input).value.strip()
+        new_room_id = self.query_one("#edit_room_new_id", Input).value.strip()
+        new_capacity_text = self.query_one("#edit_room_new_capacity", Input).value.strip()
+        new_room_type = self.query_one("#edit_room_new_type", Input).value.strip()
+
+        log.clear()
+
+        if not old_room_id:
+            log.write("[red]Enter the existing room ID.[/red]")
+            return
+
+        room = self.lookup.find_room(old_room_id)
+        if room is None:
+            log.write("[red]Room not found.[/red]")
+            return
+
+        building = self.lookup.find_room_building(old_room_id)
+        if building is None:
+            log.write("[red]Could not determine the room's building.[/red]")
+            return
+
+        new_capacity = None
+        if new_capacity_text:
+            try:
+                new_capacity = int(new_capacity_text)
+            except ValueError:
+                log.write("[red]Capacity must be an integer.[/red]")
+                return
+
+        updated = self.lookup.update_room(
+            building_id=building.building_id,
+            room_id=old_room_id,
+            new_room_id=new_room_id if new_room_id else None,
+            new_capacity=new_capacity,
+            new_room_type=new_room_type if new_room_type else None,
+        )
+
+        if not updated:
+            log.write("[red]Room update failed.[/red]")
+            return
+
+        log.write("[green]Room updated successfully.[/green]")
+        self.refresh_info_view()
+        self.refresh_delete_building_select()
 
 
 if __name__ == "__main__":
