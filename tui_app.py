@@ -177,7 +177,6 @@ class CampusMapApp(App):
             for room in building.rooms.values():
                 self.lookup.add_room(building.building_id, room)
 
-
     def compose(self) -> ComposeResult:
         """Build widgets shown in the TUI."""
         yield Header()
@@ -191,7 +190,6 @@ class CampusMapApp(App):
         )
         with Vertical(id = "lookup_view"):
             yield Static("[bold]Building and Room Information[/bold]")
-
             yield Select(
                 options = [
                     ("Buildings", "buildings"),
@@ -213,9 +211,9 @@ class CampusMapApp(App):
                 id = "add_room_building_id",
                 allow_blank = True,
             )
-            yield Input(placeholder="Room ID...", id = "add_room_id")
-            yield Input(placeholder="Room capacity...", id = "add_room_capacity")
-            yield Input(placeholder="Room type...", id = "add_room_type")
+            yield Input(placeholder="Room ID (ex. ICT-212)", id = "add_room_id")
+            yield Input(placeholder="Room capacity (ex. 100)", id = "add_room_capacity")
+            yield Input(placeholder="Room type (ex. Lecture hall, Classroom, Lab)", id = "add_room_type")
             yield Button("Add Room to Building", id = "add_room", variant = "success")
 
             yield Static("")
