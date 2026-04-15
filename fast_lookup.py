@@ -316,46 +316,62 @@ class FastLookup:
             bool: True if updated successfully
         """
         # check if the name exists already
-        existing = self.find_building_name(new_name.lower().strip())
-        if existing and existing is not building:
-            return False
-        
-        # finding the building from inputted building id
         building = self.find_building_id(building_id)
-
-        # if building is not found, will return false
         if building is None:
             return False
-        
-        building.name = new_name
-        return True
 
-    def update_building_id(self, building_name, new_id):
+        # clean the incomming name
+        cleaned_name = new_name.strip()
+        if not cleaned_name:
+            return False
+
+        # check if building exists already
+        existing = self.find_building_name(cleaned_name)
+        if existing is not None and existing is not building:
+            return False
+
+        # remove old name entry, update object, reinsert new name
+        self.buildings_name.delete(building.name.lower())
+        building.name = cleaned_name
+        self.buildings_name.insert(building.name.lower(), building)
+        return True 
+    
+    def update_building_id(self, building_id, new_id):
         """
         Updates building ID
 
         Parameters: 
-            building_name (str): The name of the building
+            building_id (str): The ID of the building
             new_id (str): New ID of the building
         
         Returns:
             bool: True if updated successfully
         """
-        # check if the id exists already
-        existing = self.find_building_name(new_id.lower().strip())
-        if existing and existing is not building:
-            return False
-        
-        # finding the building from inputted building name
-        building = self.find_building_name(building_name)
-
-        # if building is not found, will return false
+        # checking if building exists
+        building = self.find_building_id(building_id)
         if building is None:
             return False
-        
-        building.name = new_id
+
+        # cleaning incoming ID
+        cleaned_id = new_id.strip()
+        if not cleaned_id:
+            return False
+
+        # checking if ID exists
+        existing = self.find_building_id(cleaned_id)
+        if existing is not None and existing is not building:
+            return False
+
+        # return if the new id already matches
+        if cleaned_id == building.building_id:
+            return True
+
+        # remove old entry, update object, reinsert new one
+        self.buildings_id.delete(building.building_id)
+        building.building_id = cleaned_id
+        self.buildings_id.insert(building.building_id, building)
         return True
-    
+
     def update_building(self, building_id, new_name = None, new_location = None, new_building_id = None):
         """
         Updates building name
@@ -372,26 +388,23 @@ class FastLookup:
         if building is None:
             return False
 
-        update_building_id = building_id
-        if new_building_id is not None:
-            existing = self.find_building_id(new_building_id.lower().strip())
-            if existing_building is not None and existing_building is not building:
-                return False
-            update_building_id = new_building_id.strip()
+        active_building_id = building_id
 
-        if new_name is not None:
-            existing_building = self.find_building_name(new_name.strip())
-            if existing_building is not None and existing_building is not building:
+        if new_building_id is not None and new_building_id.strip():
+            if not self.update_building_id(active_building_id, new_building_id):
+                return False
+            active_building_id = new_building_id.strip()
+
+        if new_name is not None and new_name.strip():
+            if not self.update_building_name(active_building_id, new_name):
                 return False
 
-        if new_building_id is not None and not self.update_building_id(building_id, update_building_id):
-            return False
-        if new_name is not None and not self.update_building_name(update_building_id, new_name):
-            return False
-        if new_location is not None and not self.update_building_location(update_building_id, new_location):
-            return False
+        if new_location is not None:
+            if not self.update_building_location(active_building_id, new_location):
+                return False
+
         return True
-    
+        
     # ---- ROOM FUNCTIONS ----
     def add_room(self, building_id, room):
         """

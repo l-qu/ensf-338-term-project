@@ -219,45 +219,46 @@ class CampusMapApp(App):
                 id="lookup_search_input",
             )
             yield Button("Search", id="lookup_search_button", variant="primary")
-
             yield RichLog(id="lookup_log", highlight=True, markup=True)
 
-            yield Static("")
-            yield Static("[bold cyan]Add Room[/bold cyan]")
-            yield Select(
-                options=[],
-                prompt="Choose building for new room",
-                id="add_room_building_id",
-                allow_blank=True,
-            )
-            yield Input(placeholder="Room ID (ex. ICT-212)", id="add_room_id")
-            yield Input(placeholder="Room capacity (ex. 100)", id="add_room_capacity")
-            yield Input(placeholder="Room type (ex. Lecture Hall, Classroom, Lab)", id="add_room_type")
-            yield Button("Add Room to Building", id="add_room", variant="success")
+            # --- BUILDING CONTROLS ---
+            with VerticalScroll(id="building_controls_panel"):
+                yield Static("")
+                yield Static("[bold cyan]Add Building[/bold cyan]")
+                yield Input(placeholder="Building ID (ex: KINES)", id="add_building_id")
+                yield Input(placeholder="Building name (ex. Kineseology)", id="add_building_name")
+                yield Button("Add Building", id="add_building", variant="success")
 
-            yield Static("")
-            yield Static("[bold yellow]Edit Room[/bold yellow]")
-            yield Input(placeholder="Existing room ID", id="edit_room_old_id")
-            yield Input(placeholder="New room ID (optional)", id="edit_room_new_id")
-            yield Input(placeholder="New capacity (optional)", id="edit_room_new_capacity")
-            yield Input(placeholder="New room type (optional)", id="edit_room_new_type")
-            yield Button("Edit Room", id="edit_room", variant="warning")
+            # --- ROOM CONTROLS ---
+            with VerticalScroll(id="room_controls_panel"):
+                yield Static("")
+                yield Static("[bold cyan]Add Room[/bold cyan]")
+                yield Select(
+                    options=[],
+                    prompt="Choose building for new room",
+                    id="add_room_building_id",
+                    allow_blank=True,
+                )
+                yield Input(placeholder="Room ID (ex. ICT-212)", id="add_room_id")
+                yield Input(placeholder="Room capacity (ex. 100)", id="add_room_capacity")
+                yield Input(placeholder="Room type (ex. Lecture Hall, Classroom, Lab)", id="add_room_type")
+                yield Button("Add Room to Building", id="add_room", variant="success")
 
-            yield Static("")
-            yield Static("[bold red]Delete Room[/bold red]")
-            yield Select(
-                options=[],
-                prompt="Select building",
-                id="delete_room_building",
-                allow_blank=True,
-            )
-            yield Select(
-                options=[],
-                prompt="Select room",
-                id="delete_room_id",
-                allow_blank=True,
-            )
-            yield Button("Delete Room", id="delete_room", variant="error")
+                yield Static("")
+                yield Static("[bold red]Delete Room[/bold red]")
+                yield Select(
+                    options=[],
+                    prompt="Select building",
+                    id="delete_room_building",
+                    allow_blank=True,
+                )
+                yield Select(
+                    options=[],
+                    prompt="Select room",
+                    id="delete_room_id",
+                    allow_blank=True,
+                )
+                yield Button("Delete Room", id="delete_room", variant="error")
 
         with VerticalScroll(id="service_view"):
             yield Static("[bold]Service Request Queue[/bold]")
@@ -340,9 +341,8 @@ class CampusMapApp(App):
     def on_mount(self) -> None:
         """Render initial state and set initial tab visibility/focus."""
         self.refresh_node_selects()
-        self.refresh_building_select()
+        self.refresh_building_admin_selects()
         self.refresh_display()
-        self.refresh_delete_building_select()
 
         self.query_one("#nav_view").display = True
         self.query_one("#service_view").display = False
@@ -996,22 +996,6 @@ class CampusMapApp(App):
                 f"- {building.name} | ID: {building.building_id} | "
                 f"Location: {self._node_positions().get(building.name, 'Not placed')} | Rooms: {room_count}"
             )
-    
-    def refresh_building_select(self) -> None:
-        """ Refresh the building dropdown used when adding a room. """
-        building_select = self.query_one("#add_room_building_id", Select)
-
-        buildings = sorted(
-            self.lookup.list_buildings(),
-            key=lambda building: building.name.lower()
-        )
-
-        options = [
-            (f"{building.name} ({building.building_id})", building.building_id)
-            for building in buildings
-        ]
-
-        building_select.set_options(options)
 
     def render_rooms(self) -> None:
         """ Display all rooms in the lookup log. """
@@ -1045,6 +1029,7 @@ class CampusMapApp(App):
         log = self.query_one("#lookup_log", RichLog)
 
         self.refresh_lookup_mode()
+        self.refresh_admin_panels()
 
         if mode == "search":
             log.clear()
@@ -1071,22 +1056,6 @@ class CampusMapApp(App):
             "[green]Available nodes:[/green] " + ", ".join(self.nodes)
         )
     
-    def refresh_delete_building_select(self):
-        """ Refresh selection after deletion """
-        select = self.query_one("#delete_room_building", Select)
-
-        buildings = sorted(
-            self.lookup.list_buildings(),
-            key=lambda b: b.name.lower()
-        )
-
-        options = [
-            (f"{b.name} ({b.building_id})", b.building_id)
-            for b in buildings
-        ]
-
-        select.set_options(options)
-    
     def refresh_lookup_mode(self) -> None:
         """Enable search widgets only when search mode is selected."""
         mode = self.query_one("#info_action_mode", Select).value
@@ -1103,7 +1072,36 @@ class CampusMapApp(App):
         else:
             search_input.value = ""
             search_input.placeholder = "Switch mode to Search to use this"
+    
+    def refresh_building_admin_selects(self) -> None:
+        """Refresh building dropdowns used by building and room admin controls."""
+        buildings = sorted(
+            self.lookup.list_buildings(),
+            key=lambda b: b.name.lower()
+        )
 
+        options = [
+            (f"{b.name} ({b.building_id})", b.building_id)
+            for b in buildings
+        ]
+
+        self.query_one("#add_room_building_id", Select).set_options(options)
+        self.query_one("#delete_room_building", Select).set_options(options)
+        
+    def refresh_admin_panels(self) -> None:
+        """Show building controls only in building mode, and room controls only in room mode."""
+        target = self.query_one("#info_target", Select).value
+
+        building_panel = self.query_one("#building_controls_panel")
+        room_panel = self.query_one("#room_controls_panel")
+
+        if target == "buildings":
+            building_panel.display = True
+            room_panel.display = False
+        else:
+            building_panel.display = False
+            room_panel.display = True
+            
     @on(Button.Pressed, "#add_room")
     def add_room_to_building(self) -> None:
         """ Adds the room to a building via lookup menu"""
@@ -1138,7 +1136,8 @@ class CampusMapApp(App):
 
         log.clear()
         log.write("[green]Room added successfully.[/green]")
-        self.refresh_info_view()
+        self.refresh_building_admin_selects()
+        self.refresh_info_view()    
     
     @on(Select.Changed, "#info_target")
     @on(Select.Changed, "#info_action_mode")
@@ -1185,7 +1184,8 @@ class CampusMapApp(App):
         log.clear()
         log.write(f"[green]Deleted {room_id}[/green]")
 
-        self.refresh_info_view()
+        self.refresh_building_admin_selects()
+        self.refresh_info_view()    
 
     @on(Button.Pressed, "#lookup_search_button")
     def lookup_search_pressed(self) -> None:
@@ -1235,55 +1235,43 @@ class CampusMapApp(App):
         log.write(f"Location: {building.location}")
         log.write(f"Rooms: {len(building.rooms)}")
 
-    @on(Button.Pressed, "#edit_room")
-    def edit_room(self) -> None:
-        """Edit an existing room."""
+    @on(Button.Pressed, "#add_building")
+    def add_building(self) -> None:
+        """Add a new building."""
         log = self.query_one("#lookup_log", RichLog)
-        old_room_id = self.query_one("#edit_room_old_id", Input).value.strip()
-        new_room_id = self.query_one("#edit_room_new_id", Input).value.strip()
-        new_capacity_text = self.query_one("#edit_room_new_capacity", Input).value.strip()
-        new_room_type = self.query_one("#edit_room_new_type", Input).value.strip()
+
+        building_id = self.query_one("#add_building_id", Input).value.strip()
+        building_name = self.query_one("#add_building_name", Input).value.strip()
 
         log.clear()
 
-        if not old_room_id:
-            log.write("[red]Enter the existing room ID.[/red]")
+        if not building_id or not building_name:
+            log.write("[red]Building ID and name are required.[/red]")
             return
 
-        room = self.lookup.find_room(old_room_id)
-        if room is None:
-            log.write("[red]Room not found.[/red]")
+        if self.lookup.find_building_id(building_id) is not None:
+            log.write("[red]That building ID already exists.[/red]")
             return
 
-        building = self.lookup.find_room_building(old_room_id)
-        if building is None:
-            log.write("[red]Could not determine the room's building.[/red]")
+        if self.lookup.find_building_name(building_name) is not None:
+            log.write("[red]That building name already exists.[/red]")
             return
 
-        new_capacity = None
-        if new_capacity_text:
-            try:
-                new_capacity = int(new_capacity_text)
-            except ValueError:
-                log.write("[red]Capacity must be an integer.[/red]")
-                return
+        new_building = dijkstra.Building(building_id, building_name, (0.0, 0.0))
+        self.campus.add_building(new_building)
+        self.lookup.add_building(new_building)
 
-        updated = self.lookup.update_room(
-            building_id=building.building_id,
-            room_id=old_room_id,
-            new_room_id=new_room_id if new_room_id else None,
-            new_capacity=new_capacity,
-            new_room_type=new_room_type if new_room_type else None,
-        )
+        if building_id not in self.nodes:
+            self.nodes.append(building_id)
+            self.nodes.sort()
 
-        if not updated:
-            log.write("[red]Room update failed.[/red]")
-            return
+        self.query_one("#add_building_id", Input).value = ""
+        self.query_one("#add_building_name", Input).value = ""
 
-        log.write("[green]Room updated successfully.[/green]")
+        self.refresh_building_admin_selects()
+        self.refresh_node_selects()
         self.refresh_info_view()
-        self.refresh_delete_building_select()
-
+        log.write(f"[green]Added building {building_name} ({building_id})[/green]")
 
 if __name__ == "__main__":
     CampusMapApp().run()
