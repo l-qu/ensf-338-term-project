@@ -1135,9 +1135,9 @@ class CampusMapApp(App):
         self.lookup.add_room(building_id, room)
 
         log.clear()
-        log.write("[green]Room added successfully.[/green]")
         self.refresh_building_admin_selects()
         self.refresh_info_view()    
+        log.write("[green]Room added successfully.[/green]")
     
     @on(Select.Changed, "#info_target")
     @on(Select.Changed, "#info_action_mode")
