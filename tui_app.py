@@ -876,27 +876,27 @@ class CampusMapApp(App):
 
     @on(Button.Pressed, "#view_bookings_range")
     def view_bookings_range_pressed(self) -> None:
-        """Show all bookings for a room within the entered same-day time range."""
+        """Show all bookings across the entire campus within the entered same-day time range."""
         log = self._booking_log()
 
         try:
-            room_id = self.query_one("#booking_room", Input).value.strip()
-            if not room_id:
-                raise ValueError("Room ID is required")
-
-            room = self._get_room_by_id(room_id)
-            if room is None:
-                raise ValueError(f"Room not found: {room_id}")
-
             _, start_dt, end_dt = self._build_booking_datetimes()
-            bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
-
+            
             log.clear()
-            self._write_booking_list(
-                f"Bookings in {room.room_id} between {start_dt} and {end_dt}",
-                room.room_id,
-                bookings,
-            )
+            log.write(f"[bold]All bookings between {start_dt} and {end_dt}[/bold]")
+
+            for building in self.campus.buildings.values():
+                for room in building.rooms.values():
+                    bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
+
+                    if not bookings:
+                        continue
+
+                    self._write_booking_list(
+                        f"\n{room.room_id}:",
+                        room.room_id,
+                        bookings,
+                    )
 
         except ValueError as exc:
             log.clear()
