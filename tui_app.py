@@ -322,18 +322,22 @@ class CampusMapApp(App):
                 placeholder="Room ID (e.g. ICT-121 or ENG Block-101)",
                 id="booking_room",
             )
-            yield Input(placeholder="Date (YYYY-MM-DD)", id="booking_date")
-            yield Input(placeholder="Start time (HH:MM)", id="booking_start")
-            yield Input(placeholder="End time (HH:MM)", id="booking_end")
             yield Input(placeholder="Booking number to remove", id="remove_booking_id")
-
-            yield Button("Add Booking", id="add_booking", variant="primary")
-            yield Button("Remove Booking", id="remove_booking", variant="error")
-            yield Button("View Bookings on Day", id="view_bookings_day")
-            yield Button("View Bookings in Range", id="view_bookings_range")
-            yield Button("Next Upcoming Event", id="view_next_booking")
-            yield Button("Show All Bookings for Room", id="view_all_bookings_room")
-            yield Button("List Rooms", id="list_rooms")
+            with Horizontal(classes="date_time_input"):
+                yield Input(placeholder="Date (YYYY-MM-DD)", id="booking_date", classes="half_width_input")
+                yield Input(placeholder="Start time (HH:MM)", id="booking_start", classes="half_width_input")
+            with Horizontal(classes="date_time_input"):
+                yield Input(placeholder="End date (YYYY-MM-DD)", id="booking_date_end", classes="half_width_input")
+                yield Input(placeholder="End time (HH:MM)", id="booking_end", classes="half_width_input")
+            with Horizontal():
+                yield Button("Add Booking", id="add_booking", variant="primary", classes="booking_button")
+                yield Button("Remove Booking", id="remove_booking", variant="error", classes="booking_button")
+            with Horizontal():
+                yield Button("View Bookings on Day", id="view_bookings_day", classes="booking_button")
+                yield Button("View Bookings in Range", id="view_bookings_range", classes="booking_button")
+                yield Button("Next Upcoming Event", id="view_next_booking", classes="booking_button")
+                yield Button("Show All Bookings for Room", id="view_all_bookings_room", classes="booking_button")
+                yield Button("List Rooms", id="list_rooms", classes="booking_button")
 
             yield RichLog(id="booking_log", highlight=True, markup=True)
 

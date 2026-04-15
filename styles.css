@@ -77,3 +77,20 @@ Screen {
     min-height: 10;
     margin-top: 1;
 }
+
+.date_time_input {
+    margin: 1 0 0 0;
+}
+
+.half_width_input {
+    width: 1fr;
+}
+
+.booking_button {
+    margin-right: 1;
+}
+
+#booking_log {
+    height: 1fr;
+    min-height: 10;
+}
