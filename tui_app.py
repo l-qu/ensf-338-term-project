@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 from textual import events, on
 from textual.app import App, ComposeResult
@@ -854,20 +855,28 @@ class CampusMapApp(App):
         try:
             target_day = self._parse_date(self.query_one("#booking_date", Input).value)
 
-            log.clear()
-            log.write(f"[bold]All bookings on {target_day}[/bold]")
+            bookings_on_day: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
 
             for building in self.campus.buildings.values():
                 for room in building.rooms.values():
+                    # get the room's bookings on that day
                     bookings = room.bookings.get_events_on_day(target_day)
 
-                    if not bookings:
-                        continue
-
+                    # if there are bookings on that day, put them in the dictionary
+                    if bookings:
+                        bookings_on_day[room.room_id] = bookings
+            
+            # Check if any bookings were found on that day, and if so, print them
+            log.clear()
+            if not bookings_on_day:
+                log.write("[yellow]No bookings found.[/yellow]")
+            else:
+                log.write(f"[bold]All bookings on {target_day}[/bold]")
+                for room_id, bookings_list in bookings_on_day.items():
                     self._write_booking_list(
-                        f"\n{room.room_id}:",
-                        room.room_id,
-                        bookings,
+                        f"\n{room_id}:",
+                        room_id,
+                        bookings_list,
                     )
 
         except ValueError as exc:
@@ -881,21 +890,29 @@ class CampusMapApp(App):
 
         try:
             _, start_dt, end_dt = self._build_booking_datetimes()
-            
-            log.clear()
-            log.write(f"[bold]All bookings between {start_dt} and {end_dt}[/bold]")
+
+            bookings_in_range: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
 
             for building in self.campus.buildings.values():
                 for room in building.rooms.values():
+                    # get the room's bookings in that range
                     bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
 
-                    if not bookings:
-                        continue
-
+                    # if there are bookings in that range, put them in the dictionary
+                    if bookings:
+                        bookings_in_range[room.room_id] = bookings
+            
+            # Check if any bookings were found on that day, and if so, print them
+            log.clear()
+            if not bookings_in_range:
+                log.write("[yellow]No bookings found.[/yellow]")
+            else:
+                log.write(f"[bold]All bookings between {start_dt} and {end_dt}[/bold]")
+                for room_id, bookings_list in bookings_in_range.items():
                     self._write_booking_list(
-                        f"\n{room.room_id}:",
-                        room.room_id,
-                        bookings,
+                        f"\n{room_id}:",
+                        room_id,
+                        bookings_list,
                     )
 
         except ValueError as exc:
