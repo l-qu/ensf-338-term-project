@@ -709,14 +709,18 @@ class CampusMapApp(App):
             raise ValueError("Time must end in :00 or :30")
         return parsed
 
-    def _build_booking_datetimes(self) -> tuple[datetime.date, datetime, datetime]:
-        """Build same-day start/end datetimes from the booking inputs."""
+    def _build_booking_datetimes(self, is_booking: bool = True) -> tuple[datetime.date, datetime, datetime]:
+        """Build start/end datetimes from the booking inputs."""
         booking_date = self._parse_date(self.query_one("#booking_date", Input).value)
+        booking_date_end = self._parse_date(self.query_one("#booking_date_end", Input).value)
         start_t = self._parse_time(self.query_one("#booking_start", Input).value)
         end_t = self._parse_time(self.query_one("#booking_end", Input).value)
 
+        if is_booking and booking_date != booking_date_end:
+            raise ValueError("Start and end date of booking must be the same")
+
         start_dt = datetime.combine(booking_date, start_t)
-        end_dt = datetime.combine(booking_date, end_t)
+        end_dt = datetime.combine(booking_date_end, end_t)
 
         if end_dt <= start_dt:
             raise ValueError("End time must be after start time")
@@ -889,11 +893,11 @@ class CampusMapApp(App):
 
     @on(Button.Pressed, "#view_bookings_range")
     def view_bookings_range_pressed(self) -> None:
-        """Show all bookings across the entire campus within the entered same-day time range."""
+        """Show all bookings across the entire campus within the entered time range."""
         log = self._booking_log()
 
         try:
-            _, start_dt, end_dt = self._build_booking_datetimes()
+            _, start_dt, end_dt = self._build_booking_datetimes(False)
 
             bookings_in_range: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
 
