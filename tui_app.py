@@ -723,7 +723,6 @@ class CampusMapApp(App):
     ) -> None:
         """Write a numbered booking list to the log and remember it for removal."""
         log = self._booking_log()
-        log.clear()
         log.write(f"[bold]{heading}[/bold]")
 
         self.last_displayed_room_id = room_id
@@ -849,26 +848,27 @@ class CampusMapApp(App):
 
     @on(Button.Pressed, "#view_bookings_day")
     def view_bookings_day_pressed(self) -> None:
-        """Show all bookings for a room on a given day."""
+        """Show all bookings across the entire campus on a given day."""
         log = self._booking_log()
 
         try:
-            room_id = self.query_one("#booking_room", Input).value.strip()
-            if not room_id:
-                raise ValueError("Room ID is required")
-
-            room = self._get_room_by_id(room_id)
-            if room is None:
-                raise ValueError(f"Room not found: {room_id}")
-
             target_day = self._parse_date(self.query_one("#booking_date", Input).value)
-            bookings = room.bookings.get_events_on_day(target_day)
 
-            self._write_booking_list(
-                f"Bookings in {room.room_id} on {target_day}",
-                room.room_id,
-                bookings,
-            )
+            log.clear()
+            log.write(f"[bold]All bookings on {target_day}[/bold]")
+
+            for building in self.campus.buildings.values():
+                for room in building.rooms.values():
+                    bookings = room.bookings.get_events_on_day(target_day)
+
+                    if not bookings:
+                        continue
+
+                    self._write_booking_list(
+                        f"\n{room.room_id}:",
+                        room.room_id,
+                        bookings,
+                    )
 
         except ValueError as exc:
             log.clear()
@@ -891,6 +891,7 @@ class CampusMapApp(App):
             _, start_dt, end_dt = self._build_booking_datetimes()
             bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
 
+            log.clear()
             self._write_booking_list(
                 f"Bookings in {room.room_id} between {start_dt} and {end_dt}",
                 room.room_id,
@@ -942,6 +943,7 @@ class CampusMapApp(App):
                 raise ValueError(f"Room not found: {room_id}")
 
             bookings = room.bookings.all_bookings()
+            log.clear()
             self._write_booking_list(
                 f"All bookings for {room.room_id}",
                 room.room_id,
