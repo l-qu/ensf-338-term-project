@@ -49,9 +49,10 @@ python tui_app.py
 
 #### Shortest path query:
 
-1. Select "Administration" as the starting node
-2. Select "Student Union" as ending node
-3. Observe shortest path and total time displayed at top
+1. In the 'Navigation' tab select:
+   - Start: 'Administration'
+   - End: 'Student Union'
+2. Observe total time and shortest path displayed on top
 
 #### Undo navigation:
 
@@ -65,6 +66,7 @@ python tui_app.py
 4. Observe that the route returns to 'Administration -> Student Union'
 
 #### Booking range query:
+
 1. Navigate to the 'Bookings' tab.
 2. Enter the start date (YYYY-MM-DD) and start time (HH:MM) that will be used as the beginning of the range for the query. In the demo, this was 2026-04-15 and 12:00.
 3. Enter the end date (YYYY-MM-DD) and end time (HH:MM) that will be used as the end of the range for the query. In the demo, this was 2026-04-15 and 15:00.
