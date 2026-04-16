@@ -27,6 +27,7 @@ from dijkstra import Room, load_campus_from_csv
 from event_booking import Booking
 from service_queue import Priority, PriorityQueue, ServiceRequest
 from fast_lookup import FastLookup
+from navigation import NavigationSession
 
 
 def load_map_data(
@@ -90,6 +91,8 @@ class CampusMapApp(App):
 
         # from dijkstra.py
         self.campus = load_campus_from_csv(self.csv_path)
+        self.navigation_session = NavigationSession(self.campus)
+        self._suspend_nav_refresh = False
         self._add_rooms_to_loaded_campus()
         self._rebuild_lookup_from_campus()
         ensure_booking_indices(self.campus)
@@ -282,6 +285,7 @@ class CampusMapApp(App):
             yield Static(
                 "[yellow]Shortest Path:[/yellow] pick both nodes", id="path_summary"
             )
+            yield Static("[yellow]Undo:[/yellow] no prior route", id="undo_status")
             yield RichLog(id="map_display", highlight=True, markup=True)
 
             with Horizontal(id="selectors_row"):
@@ -297,6 +301,7 @@ class CampusMapApp(App):
                     id="end_node",
                     allow_blank=True,
                 )
+                yield Button("Undo Route", id="undo_route")
 
         with VerticalScroll(id="bookings_view"):
             yield Static("[bold]Room and Event Booking[/bold]")
@@ -357,6 +362,8 @@ class CampusMapApp(App):
     @on(Select.Changed, "#end_node")
     def on_select_changed(self, _event: Select.Changed) -> None:
         """Refresh route output whenever either dropdown changes."""
+        if self._suspend_nav_refresh:
+            return
         self.refresh_display()
 
     @on(events.MouseDown, "#map_display")
@@ -536,8 +543,33 @@ class CampusMapApp(App):
         display.write("[black on bright_green] selected path building [/]")
         display.write("[bold]*[/bold] selected route edge")
 
+    def _refresh_undo_status(self) -> None:
+        """Update undo availability text and button state."""
+        status = self.query_one("#undo_status", Static)
+        undo_button = self.query_one("#undo_route", Button)
+        history_size = self.navigation_session.history.size()
+
+        if self.navigation_session.can_undo():
+            status.update(
+                f"[green]Undo:[/green] available ({history_size}/10 routes saved)"
+            )
+            undo_button.disabled = False
+            return
+
+        status.update("[yellow]Undo:[/yellow] no prior route")
+        undo_button.disabled = True
+
+    def _set_route_selects(self, source: str, destination: str) -> None:
+        """Set start/end dropdowns without retriggering navigation history."""
+        self._suspend_nav_refresh = True
+        try:
+            self.query_one("#start_node", Select).value = source
+            self.query_one("#end_node", Select).value = destination
+        finally:
+            self._suspend_nav_refresh = False
+
     def refresh_display(self) -> None:
-        """Redraw route text and connections panel."""
+        """Redraw route text and map panel."""
         start_select = self.query_one("#start_node", Select)
         end_select = self.query_one("#end_node", Select)
         path_summary = self.query_one("#path_summary", Static)
@@ -547,39 +579,72 @@ class CampusMapApp(App):
         end_node = end_select.value if end_select.value != Select.BLANK else None
 
         display.clear()
-        display.write("Campus Connections")
-        display.write("")
+        display.write("[bold cyan]Campus Map[/bold cyan]")
 
         if self.load_error:
-            display.write(f"Error: {self.load_error}")
+            display.write(f"[bold red]{self.load_error}[/bold red]")
             return
 
+        display.write("[bold]Edges:[/bold]")
         for source, target, weight in self.edges:
-            display.write(f"{source} <-> {target} ({weight} min)")
+            display.write(f"- {source} <-> {target} ({weight} min)")
 
+        route_path: list[str] = []
         display.write("")
 
         if start_node and end_node:
-            path_summary.update(f"Shortest Path: {start_node} -> {end_node}")
+            path_summary.update(
+                f"[cyan]Shortest Path:[/cyan] request {start_node} -> {end_node}"
+            )
             try:
-                route_path, total_time = dijkstra.shortest_path_from_csv(
-                    self.csv_path,
-                    start_node,
-                    end_node,
-                )
+                current_route = self.navigation_session.get_current_route()
+                if (
+                    current_route is None
+                    or current_route.source != start_node
+                    or current_route.destination != end_node
+                ):
+                    current_route = self.navigation_session.navigate(
+                        start_node,
+                        end_node,
+                    )
+
+                route_path = current_route.path
+                total_time = current_route.cost
                 path_summary.update(
-                    "Shortest Path: "
+                    "[bold green]Shortest Path:[/bold green] "
                     + " -> ".join(route_path)
-                    + f" ({total_time} min)"
+                    + f" ([bold]{total_time} min[/bold])"
                 )
             except ValueError as exc:
-                path_summary.update(f"Shortest Path: {exc}")
+                path_summary.update(f"[bold yellow]Shortest Path:[/bold yellow] {exc}")
+                display.write(f"[bold yellow]{exc}[/bold yellow]")
             except OSError as exc:
-                path_summary.update(f"Shortest Path: {exc}")
+                path_summary.update(f"[bold red]Shortest Path:[/bold red] {exc}")
+                display.write(f"[bold red]Error reading map data: {exc}[/bold red]")
             except Exception as exc:
-                path_summary.update(f"Shortest Path: {exc}")
+                path_summary.update(f"[bold red]Shortest Path:[/bold red] {exc}")
+                display.write(f"[bold red]Error computing path: {exc}[/bold red]")
         else:
-            path_summary.update("Shortest Path: pick both nodes")
+            path_summary.update("[yellow]Shortest Path:[/yellow] pick both nodes")
+            display.write("[yellow]Pick both nodes to request a route.[/yellow]")
+
+        display.write("")
+        self._render_grid_map(display, route_path)
+        self._refresh_undo_status()
+
+    @on(Button.Pressed, "#undo_route")
+    def undo_route(self) -> None:
+        """Restore the previously requested route from navigation history."""
+        previous_route = self.navigation_session.undo()
+        if previous_route is None:
+            self._refresh_undo_status()
+            self.query_one("#path_summary", Static).update(
+                "[bold yellow]Shortest Path:[/bold yellow] no route to undo"
+            )
+            return
+
+        self._set_route_selects(previous_route.source, previous_route.destination)
+        self.refresh_display()
 
     def action_quit_app(self) -> None:
         """Quit the app."""
