@@ -7,4 +7,26 @@ ICT,ENG Block,6
 ICT,Student Union,3
 ICT,Parkade,7
 ENG Block,MFH,2
+ENG Block,EEEL,4
+EEEL,MFH,5
 Student Union,Residence,5
+Student Union,MacEwan Hall,4
+Student Union,Dining Centre,2
+MFH,Residence,6
+Gym,Dining Centre,4
+Gym,Parkade,6
+EEEL,Science B,3
+Science B,Dining Centre,7
+MacEwan Hall,Administration,3
+Administration,Dining Centre,5
+Administration,Parkade,8
+Residence,Dining Centre,3
+Residence,Parkade,4
+Science A,Administration,6
+Science B,Administration,4
+Administration,ENG Block,5
+Education, Administration,7
+Education, Science A, 4
+Education, Science B, 5
+
+
