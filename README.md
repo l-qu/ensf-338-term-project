@@ -62,6 +62,20 @@ python tui_app.py
 3. Click 'Process Next' to process each request in order
 
 #### Fast lookup demo:
+1. Navigate to the 'Information Lookup' tab.
+2. Enter new building
+   - Building ID: KINES
+   - Building Name: Kineseology
+3. Switch the lookup mode to 'Search' from 'List All' and look up KINES
+4. Try to look up MATH (will not exist)
+5. Switch to the 'Rooms' menu form 'Buildings'
+6. Enter new room
+   - Choose building: Kineseology (KINES)
+   - Room ID: KINES-123
+   - Room Capacity: 100
+   - Room Type: Lab
+7. Make sure the 'Search' mode is on and search for KINES-123
+8. Search for KINES-1234 (will not exist)
 
 #### Request pipeline demo:
 1. Run ```python request_processing_demo.py```
