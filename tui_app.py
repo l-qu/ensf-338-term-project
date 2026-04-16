@@ -537,7 +537,7 @@ class CampusMapApp(App):
         display.write("[bold]*[/bold] selected route edge")
 
     def refresh_display(self) -> None:
-        """Redraw route text and map panel."""
+        """Redraw route text and connections panel."""
         start_select = self.query_one("#start_node", Select)
         end_select = self.query_one("#end_node", Select)
         path_summary = self.query_one("#path_summary", Static)
@@ -547,23 +547,20 @@ class CampusMapApp(App):
         end_node = end_select.value if end_select.value != Select.BLANK else None
 
         display.clear()
-        display.write("[bold cyan]Campus Map[/bold cyan]")
+        display.write("Campus Connections")
+        display.write("")
 
         if self.load_error:
-            display.write(f"[bold red]{self.load_error}[/bold red]")
+            display.write(f"Error: {self.load_error}")
             return
 
-        display.write("[bold]Edges:[/bold]")
         for source, target, weight in self.edges:
-            display.write(f"- {source} <-> {target} ({weight} min)")
+            display.write(f"{source} <-> {target} ({weight} min)")
 
-        route_path: list[str] = []
         display.write("")
 
         if start_node and end_node:
-            path_summary.update(
-                f"[cyan]Shortest Path:[/cyan] request {start_node} -> {end_node}"
-            )
+            path_summary.update(f"Shortest Path: {start_node} -> {end_node}")
             try:
                 route_path, total_time = dijkstra.shortest_path_from_csv(
                     self.csv_path,
@@ -571,25 +568,18 @@ class CampusMapApp(App):
                     end_node,
                 )
                 path_summary.update(
-                    "[bold green]Shortest Path:[/bold green] "
+                    "Shortest Path: "
                     + " -> ".join(route_path)
-                    + f" ([bold]{total_time} min[/bold])"
+                    + f" ({total_time} min)"
                 )
             except ValueError as exc:
-                path_summary.update(f"[bold yellow]Shortest Path:[/bold yellow] {exc}")
-                display.write(f"[bold yellow]{exc}[/bold yellow]")
+                path_summary.update(f"Shortest Path: {exc}")
             except OSError as exc:
-                path_summary.update(f"[bold red]Shortest Path:[/bold red] {exc}")
-                display.write(f"[bold red]Error reading map data: {exc}[/bold red]")
+                path_summary.update(f"Shortest Path: {exc}")
             except Exception as exc:
-                path_summary.update(f"[bold red]Shortest Path:[/bold red] {exc}")
-                display.write(f"[bold red]Error computing path: {exc}[/bold red]")
+                path_summary.update(f"Shortest Path: {exc}")
         else:
-            path_summary.update("[yellow]Shortest Path:[/yellow] pick both nodes")
-            display.write("[yellow]Pick both nodes to request a route.[/yellow]")
-
-        display.write("")
-        self._render_grid_map(display, route_path)
+            path_summary.update("Shortest Path: pick both nodes")
 
     def action_quit_app(self) -> None:
         """Quit the app."""
