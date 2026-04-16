@@ -65,6 +65,27 @@ python tui_app.py
 3. Click 'Undo Route'
 4. Observe that the route returns to 'Administration -> Student Union'
 
+#### Add booking:
+
+1. Navigate to the 'Bookings' tab.
+2. Fill out the following fields:
+    - Event title: 'Exec Meeting'
+    - Organiser: 'Trivia Club'
+    - Room ID: 'MFH-250'
+    - Date: 2026-04-15
+    - Start time: 17:00
+    - End date: 2026-04-15
+    - End time: 19:00
+3. Click 'Add Booking'. (This may or may not overlap with an existing booking depending on the seeded bookings - see "remove booking" for how to remove the booking.)
+
+#### Remove booking:
+
+1. Navigate to the 'Bookings' tab.
+2. Enter the room ID of where the booking to be removed is (MFH-250 in the demo).
+3. Click 'Show All Bookings for Room'.
+4. Enter the booking number to remove in the appropriate field. The demo removed booking 1.
+5. Click 'Remove Booking'.
+
 #### Booking range query:
 
 1. Navigate to the 'Bookings' tab.
