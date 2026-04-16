@@ -76,13 +76,14 @@ python tui_app.py
 #### Priority queue demo:
 
 1. Navigate to the 'Service Queue' tab
-2. Enter each of the following description and priority pairs in 'Describe issue...' and 'Priority' fields and click 'Add Request'
+2. Try to Add Request without entering information (will give an error)
+3. Enter each of the following description and priority pairs in 'Describe issue...' and 'Priority' fields and click 'Add Request'
    - 'the wifi is down' : STANDARD
    - 'fire alarm' : EMERGENCY
    - 'broken projector' : STANDARD
    - 'move tables' : LOW
    - 'something very bad' : EMERGENCY
-3. Click 'Process Next' to process each request in order
+4. Click 'Process Next' to process each request in order
 
 #### Fast lookup demo:
 
