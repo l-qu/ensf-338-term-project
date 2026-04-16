@@ -1,5 +1,16 @@
 # ensf-338-term-project
 
+GitHub Link: https://github.com/l-qu/ensf-338-term-project
+
+Group Members: 
+- Noor Ali (30089446)
+- Lindsey Quong (30245714)
+- Gianna Kong (30241947)
+- Chloe Khoo (30247640)
+- Javier Dal Monte Casoni (########)
+- Omar Al-Mahfoodh (30257072)
+- Sharar Masud (30205753) 
+
 ### First time setup
 
 #### Windows:
@@ -10,7 +21,8 @@ python tui_app.py
 
 #### macOS/Linux:
 ```
-bash setup_env.sh
+chmod +x setup_env.sh
+./setup_env.sh
 python tui_app.py
 ```
 
