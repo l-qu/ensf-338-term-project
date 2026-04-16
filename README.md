@@ -7,7 +7,7 @@ Group Members:
 - Lindsey Quong (30245714)
 - Gianna Kong (30241947)
 - Chloe Khoo (30247640)
-- Javier Dal Monte Casoni (########)
+- Javier Dal Monte Casoni (30254262)
 - Omar Al-Mahfoodh (30257072)
 - Sharar Masud (30205753) 
 
