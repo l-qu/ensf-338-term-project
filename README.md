@@ -65,6 +65,11 @@ python tui_app.py
 4. Observe that the route returns to 'Administration -> Student Union'
 
 #### Booking range query:
+1. Navigate to the 'Bookings' tab.
+2. Enter the start date (YYYY-MM-DD) and start time (HH:MM) that will be used as the beginning of the range for the query. In the demo, this was 2026-04-15 and 12:00.
+3. Enter the end date (YYYY-MM-DD) and end time (HH:MM) that will be used as the end of the range for the query. In the demo, this was 2026-04-15 and 15:00.
+4. Click "View Bookings in Range".
+5. All bookings within the given range should be displayed, grouped by the room they are occuring in. Note that the seeded bookings may be different when you run the app, so this may not produce the same result as the demo screenshots. If it returns "No bookings found", try adding a booking first, or query closer to the current date.
 
 #### Priority queue demo:
 
