@@ -31,7 +31,9 @@ python tui_app.py
 ### Reproducing demo scenarios
 
 #### Shortest path query:
-1. 
+1. Select "Administration" as the starting node
+2. Select "Student Union" as ending node
+4. Observe shortest path and total time displayed at top
 
 #### Undo navigation:
 
