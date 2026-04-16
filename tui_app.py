@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 from textual import events, on
 from textual.app import App, ComposeResult
@@ -326,18 +327,22 @@ class CampusMapApp(App):
                 placeholder="Room ID (e.g. ICT-121 or ENG Block-101)",
                 id="booking_room",
             )
-            yield Input(placeholder="Date (YYYY-MM-DD)", id="booking_date")
-            yield Input(placeholder="Start time (HH:MM)", id="booking_start")
-            yield Input(placeholder="End time (HH:MM)", id="booking_end")
             yield Input(placeholder="Booking number to remove", id="remove_booking_id")
-
-            yield Button("Add Booking", id="add_booking", variant="primary")
-            yield Button("Remove Booking", id="remove_booking", variant="error")
-            yield Button("View Bookings on Day", id="view_bookings_day")
-            yield Button("View Bookings in Range", id="view_bookings_range")
-            yield Button("Next Upcoming Event", id="view_next_booking")
-            yield Button("Show All Bookings for Room", id="view_all_bookings_room")
-            yield Button("List Rooms", id="list_rooms")
+            with Horizontal(classes="date_time_input"):
+                yield Input(placeholder="Date (YYYY-MM-DD)", id="booking_date", classes="half_width_input")
+                yield Input(placeholder="Start time (HH:MM)", id="booking_start", classes="half_width_input")
+            with Horizontal(classes="date_time_input"):
+                yield Input(placeholder="End date (YYYY-MM-DD)", id="booking_date_end", classes="half_width_input")
+                yield Input(placeholder="End time (HH:MM)", id="booking_end", classes="half_width_input")
+            with Horizontal():
+                yield Button("Add Booking", id="add_booking", variant="primary", classes="booking_button")
+                yield Button("Remove Booking", id="remove_booking", variant="error", classes="booking_button")
+            with Horizontal():
+                yield Button("View Bookings on Day", id="view_bookings_day", classes="booking_button")
+                yield Button("View Bookings in Range", id="view_bookings_range", classes="booking_button")
+                yield Button("Next Upcoming Event", id="view_next_booking", classes="booking_button")
+                yield Button("Show All Bookings for Room", id="view_all_bookings_room", classes="booking_button")
+                yield Button("List Rooms", id="list_rooms", classes="booking_button")
 
             yield RichLog(id="booking_log", highlight=True, markup=True)
 
@@ -759,14 +764,18 @@ class CampusMapApp(App):
             raise ValueError("Time must end in :00 or :30")
         return parsed
 
-    def _build_booking_datetimes(self) -> tuple[datetime.date, datetime, datetime]:
-        """Build same-day start/end datetimes from the booking inputs."""
+    def _build_booking_datetimes(self, is_booking: bool = True) -> tuple[datetime.date, datetime, datetime]:
+        """Build start/end datetimes from the booking inputs."""
         booking_date = self._parse_date(self.query_one("#booking_date", Input).value)
+        booking_date_end = self._parse_date(self.query_one("#booking_date_end", Input).value)
         start_t = self._parse_time(self.query_one("#booking_start", Input).value)
         end_t = self._parse_time(self.query_one("#booking_end", Input).value)
 
+        if is_booking and booking_date != booking_date_end:
+            raise ValueError("Start and end date of booking must be the same")
+
         start_dt = datetime.combine(booking_date, start_t)
-        end_dt = datetime.combine(booking_date, end_t)
+        end_dt = datetime.combine(booking_date_end, end_t)
 
         if end_dt <= start_dt:
             raise ValueError("End time must be after start time")
@@ -778,7 +787,6 @@ class CampusMapApp(App):
     ) -> None:
         """Write a numbered booking list to the log and remember it for removal."""
         log = self._booking_log()
-        log.clear()
         log.write(f"[bold]{heading}[/bold]")
 
         self.last_displayed_room_id = room_id
@@ -904,26 +912,35 @@ class CampusMapApp(App):
 
     @on(Button.Pressed, "#view_bookings_day")
     def view_bookings_day_pressed(self) -> None:
-        """Show all bookings for a room on a given day."""
+        """Show all bookings across the entire campus on a given day."""
         log = self._booking_log()
 
         try:
-            room_id = self.query_one("#booking_room", Input).value.strip()
-            if not room_id:
-                raise ValueError("Room ID is required")
-
-            room = self._get_room_by_id(room_id)
-            if room is None:
-                raise ValueError(f"Room not found: {room_id}")
-
             target_day = self._parse_date(self.query_one("#booking_date", Input).value)
-            bookings = room.bookings.get_events_on_day(target_day)
 
-            self._write_booking_list(
-                f"Bookings in {room.room_id} on {target_day}",
-                room.room_id,
-                bookings,
-            )
+            bookings_on_day: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
+
+            for building in self.campus.buildings.values():
+                for room in building.rooms.values():
+                    # get the room's bookings on that day
+                    bookings = room.bookings.get_events_on_day(target_day)
+
+                    # if there are bookings on that day, put them in the dictionary
+                    if bookings:
+                        bookings_on_day[room.room_id] = bookings
+            
+            # Check if any bookings were found on that day, and if so, print them
+            log.clear()
+            if not bookings_on_day:
+                log.write("[yellow]No bookings found.[/yellow]")
+            else:
+                log.write(f"[bold]All bookings on {target_day}[/bold]")
+                for room_id, bookings_list in bookings_on_day.items():
+                    self._write_booking_list(
+                        f"\n{room_id}:",
+                        room_id,
+                        bookings_list,
+                    )
 
         except ValueError as exc:
             log.clear()
@@ -931,26 +948,35 @@ class CampusMapApp(App):
 
     @on(Button.Pressed, "#view_bookings_range")
     def view_bookings_range_pressed(self) -> None:
-        """Show all bookings for a room within the entered same-day time range."""
+        """Show all bookings across the entire campus within the entered time range."""
         log = self._booking_log()
 
         try:
-            room_id = self.query_one("#booking_room", Input).value.strip()
-            if not room_id:
-                raise ValueError("Room ID is required")
+            _, start_dt, end_dt = self._build_booking_datetimes(False)
 
-            room = self._get_room_by_id(room_id)
-            if room is None:
-                raise ValueError(f"Room not found: {room_id}")
+            bookings_in_range: dict[str, List[Booking]] = {}        # room_id -> List[Booking]
 
-            _, start_dt, end_dt = self._build_booking_datetimes()
-            bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
+            for building in self.campus.buildings.values():
+                for room in building.rooms.values():
+                    # get the room's bookings in that range
+                    bookings = room.bookings.get_bookings_in_range(start_dt, end_dt)
 
-            self._write_booking_list(
-                f"Bookings in {room.room_id} between {start_dt} and {end_dt}",
-                room.room_id,
-                bookings,
-            )
+                    # if there are bookings in that range, put them in the dictionary
+                    if bookings:
+                        bookings_in_range[room.room_id] = bookings
+            
+            # Check if any bookings were found on that day, and if so, print them
+            log.clear()
+            if not bookings_in_range:
+                log.write("[yellow]No bookings found.[/yellow]")
+            else:
+                log.write(f"[bold]All bookings between {start_dt} and {end_dt}[/bold]")
+                for room_id, bookings_list in bookings_in_range.items():
+                    self._write_booking_list(
+                        f"\n{room_id}:",
+                        room_id,
+                        bookings_list,
+                    )
 
         except ValueError as exc:
             log.clear()
@@ -997,6 +1023,7 @@ class CampusMapApp(App):
                 raise ValueError(f"Room not found: {room_id}")
 
             bookings = room.bookings.all_bookings()
+            log.clear()
             self._write_booking_list(
                 f"All bookings for {room.room_id}",
                 room.room_id,
